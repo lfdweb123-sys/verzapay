@@ -64,7 +64,6 @@ export default function DocsPage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        // On garde la section la plus visible dans le viewport
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -75,8 +74,6 @@ export default function DocsPage() {
         }
       },
       {
-        // Décale la zone de détection vers le haut pour anticiper le changement avant que la section
-        // n'atteigne tout en haut, et réduit la zone basse pour éviter les faux positifs en fin de page
         rootMargin: "-15% 0px -65% 0px",
         threshold: [0, 0.25, 0.5, 0.75, 1],
       }
