@@ -122,7 +122,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
         {/* Company picker */}
         <div className="px-3 py-3 border-b border-ink-200 shrink-0 relative" ref={pickerRef}>
           <button
-            onClick={() => !collapsed && setPickerOpen((v) => !v)}
+            onClick={() => setPickerOpen((v) => !v)}
             className={cn(
               "w-full flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-ink-100 transition-colors",
               collapsed && "lg:justify-center"
@@ -149,7 +149,14 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
           </button>
 
           {pickerOpen && (
-            <div className="absolute left-3 right-3 top-full mt-1 bg-white border border-ink-200 rounded-xl shadow-popover z-50 overflow-hidden animate-slide-up">
+            <div
+              className={cn(
+                "absolute top-full mt-1 bg-white border border-ink-200 rounded-xl shadow-popover z-50 overflow-hidden animate-slide-up",
+                // Réduit (desktop) : panneau étroit, on l'ouvre vers la droite, largeur fixe
+                // Déployé / mobile : pleine largeur de la sidebar
+                collapsed ? "left-3 lg:left-full lg:ml-2 lg:top-0 w-64 right-3 lg:right-auto" : "left-3 right-3"
+              )}
+            >
               <div className="px-3 py-2 border-b border-ink-100">
                 <p className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Mes entreprises</p>
               </div>
