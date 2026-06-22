@@ -4,8 +4,8 @@ import { CheckCircle2, Globe2, Building2, Activity } from "lucide-react";
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white">
-      <div className="flex-1 flex flex-col justify-center px-6 sm:px-10 lg:px-16 py-10 lg:py-0">
-        <div className="w-full max-w-[380px] mx-auto lg:mx-0">{children}</div>
+      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-10 py-10 lg:py-0">
+        <div className="w-full max-w-[400px]">{children}</div>
       </div>
 
       <div className="hidden lg:flex flex-1 relative bg-brand-700 overflow-hidden items-center justify-center p-10">
@@ -18,9 +18,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="absolute bottom-[15%] left-[18%] w-1.5 h-1.5 rounded-full bg-white/30" />
 
         <div className="relative z-10 w-full max-w-[420px] flex flex-col gap-4">
-
-          {/* Images remplaçant le bloc volume */}
-          <div className="relative flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <div className="rounded-2xl overflow-hidden border border-white/15">
               <Image
                 src="/images/gestionfinancier1.png"
@@ -60,7 +58,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               <p className="text-brand-100 text-[11px] flex items-center gap-1.5 mb-1.5">
                 <Building2 size={13} /> Marchands
               </p>
-              <p className="text-white text-lg font-medium">1 247</p>
+              <p className="text-white text-lg font-medium">+1 247</p>
             </div>
             <div className="bg-white/10 border border-white/15 rounded-2xl p-4">
               <p className="text-brand-100 text-[11px] flex items-center gap-1.5 mb-1.5">
