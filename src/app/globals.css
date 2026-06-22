@@ -23,6 +23,7 @@
   --color-success-900: #173404;
 
   --color-warning-50: #FAEEDA;
+  --color-warning-200: #F0C97A;
   --color-warning-500: #BA7517;
   --color-warning-700: #854F0B;
   --color-warning-900: #412402;
@@ -74,11 +75,24 @@
   border-color: var(--color-ink-200);
 }
 
+/* Dark mode border override */
+.dark * {
+  border-color: #27272a; /* zinc-800 */
+}
+
 html,
 body {
   background: #ffffff;
   color: var(--color-ink-900);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Dark mode on html/body */
+html.dark,
+html.dark body {
+  background: #09090b; /* zinc-950 */
+  color: #f4f4f5;      /* zinc-100 */
 }
 
 body {
@@ -100,6 +114,13 @@ body {
   background: var(--color-ink-400);
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46; /* zinc-700 */
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #52525b; /* zinc-600 */
+}
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
@@ -112,21 +133,24 @@ body {
   .input-base {
     @apply w-full h-10 px-3 rounded-lg border border-ink-200 bg-white text-sm text-ink-900 placeholder:text-ink-400 transition-colors;
     @apply focus:outline-none focus:ring-2 focus:ring-brand-400/30 focus:border-brand-500;
+    @apply dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500;
   }
   .label-base {
-    @apply block text-sm font-medium text-ink-800 mb-1.5;
+    @apply block text-sm font-medium text-ink-800 mb-1.5 dark:text-zinc-200;
   }
   .card-base {
-    @apply bg-white border border-ink-200 rounded-xl;
+    @apply bg-white border border-ink-200 rounded-xl dark:bg-zinc-900 dark:border-zinc-800;
   }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-brand-700 text-white text-sm font-medium transition-colors hover:bg-brand-800 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-white border border-ink-200 text-ink-800 text-sm font-medium transition-colors hover:bg-ink-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800;
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg text-ink-600 text-sm font-medium transition-colors hover:bg-ink-100 hover:text-ink-900;
+    @apply dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100;
   }
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-danger-500 text-white text-sm font-medium transition-colors hover:bg-danger-700 active:scale-[0.98] disabled:opacity-50;
