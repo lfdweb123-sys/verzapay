@@ -31,7 +31,7 @@ export function HowItWorks() {
   return (
     <section id="fonctionnement" className="py-20 sm:py-28 bg-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
-        <div className="max-w-2xl">
+        <div className="max-w-2xl mx-auto text-center">
           <p className="text-sm font-medium text-brand-700">Fonctionnement</p>
           <h2 className="mt-2 text-3xl sm:text-4xl font-medium text-ink-900 tracking-tight">
             De l&apos;inscription au premier encaissement, en 4 étapes

@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 export function FinalCta() {
   return (
     <section className="py-20 sm:py-28 bg-white">
-      <div className="max-w-5xl mx-auto px-5 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-3xl bg-brand-700 px-6 py-14 sm:px-14 sm:py-16 text-center">
           <div
             aria-hidden
