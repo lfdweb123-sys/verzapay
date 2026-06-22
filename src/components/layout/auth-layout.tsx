@@ -21,16 +21,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="flex flex-col gap-3">
             <div className="rounded-2xl overflow-hidden border border-white/15">
               <Image
-                src="/images/gestionfinancier1.png"
-                alt="Gestion financière"
-                width={420}
-                height={220}
-                className="w-full h-auto object-cover"
-                priority
-              />
-            </div>
-            <div className="rounded-2xl overflow-hidden border border-white/15">
-              <Image
                 src="/images/gestionfinancier2.png"
                 alt="Gestion financière"
                 width={420}
