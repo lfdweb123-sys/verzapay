@@ -86,7 +86,7 @@ export default function NewProductPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-5">
+    <div className="max-w-7lx mx-auto space-y-5">
       <div className="flex items-center gap-2">
         <Link href="/shop" className="btn-ghost -ml-1"><ArrowLeft size={16} /></Link>
         <h1 className="text-lg font-medium text-ink-900">Ajouter un produit</h1>
