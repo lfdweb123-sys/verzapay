@@ -58,7 +58,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               <p className="text-brand-100 text-[11px] flex items-center gap-1.5 mb-1.5">
                 <Building2 size={13} /> Marchands
               </p>
-              <p className="text-white text-lg font-medium">+1 247</p>
+              <p className="text-white text-lg font-medium">1 247</p>
             </div>
             <div className="bg-white/10 border border-white/15 rounded-2xl p-4">
               <p className="text-brand-100 text-[11px] flex items-center gap-1.5 mb-1.5">

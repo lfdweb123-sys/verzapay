@@ -18,7 +18,7 @@ export function Hero() {
           {/* Colonne texte */}
           <div className="max-w-xl mx-auto lg:mx-0 text-center lg:text-left flex flex-col items-center lg:items-start">
             <h1 className="text-[1.9rem] leading-[1.2] sm:text-5xl sm:leading-[1.05] lg:text-[3.4rem] lg:leading-[1.04] font-medium text-ink-900 tracking-tight">
-              Encaissez vos clients, reversez vos marchands.{" "}
+              Encaissez vos clients, Décaissez facilement.{" "}
               <span className="text-brand-700">Une seule plateforme.</span>
             </h1>
 
