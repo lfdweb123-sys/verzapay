@@ -1,4 +1,5 @@
-import { TrendingUp, CheckCircle2, Globe2, Building2, Activity } from "lucide-react";
+import Image from "next/image";
+import { CheckCircle2, Globe2, Building2, Activity } from "lucide-react";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,27 +18,28 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="absolute bottom-[15%] left-[18%] w-1.5 h-1.5 rounded-full bg-white/30" />
 
         <div className="relative z-10 w-full max-w-[420px] flex flex-col gap-4">
-          <div className="bg-white/10 backdrop-blur-0 border border-white/15 rounded-2xl p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-brand-100 text-xs">Volume ce mois</p>
-                <p className="text-white text-2xl font-medium mt-1">108 200 K XOF</p>
-                <p className="text-success-50 text-xs mt-1.5 flex items-center gap-1">
-                  <TrendingUp size={13} /> +14.2% vs mois dernier
-                </p>
-              </div>
-              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center">
-                <TrendingUp size={16} className="text-white" />
-              </div>
+
+          {/* Images remplaçant le bloc volume */}
+          <div className="relative flex flex-col gap-3">
+            <div className="rounded-2xl overflow-hidden border border-white/15">
+              <Image
+                src="/images/gestionfinancier1.png"
+                alt="Gestion financière"
+                width={420}
+                height={220}
+                className="w-full h-auto object-cover"
+                priority
+              />
             </div>
-            <div className="flex items-end gap-1.5 mt-5 h-12">
-              {[30, 38, 34, 50, 52, 64, 66, 74, 76, 84, 88, 100].map((h, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-sm bg-white/30 last:bg-white"
-                  style={{ height: `${h}%` }}
-                />
-              ))}
+            <div className="rounded-2xl overflow-hidden border border-white/15">
+              <Image
+                src="/images/gestionfinancier2.png"
+                alt="Gestion financière"
+                width={420}
+                height={160}
+                className="w-full h-auto object-cover"
+                priority
+              />
             </div>
           </div>
 
