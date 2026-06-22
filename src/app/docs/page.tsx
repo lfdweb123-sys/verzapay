@@ -60,7 +60,6 @@ export default function DocsPage() {
   const { dark, toggle } = useDarkMode();
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  // Scroll-spy : observe chaque section et met à jour le lien actif dans la sidebar
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -97,32 +96,33 @@ export default function DocsPage() {
   return (
     <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 dark:bg-zinc-950 transition-colors">
       <div className="grid lg:grid-cols-[220px_1fr] gap-10">
-        {/* Sommaire sticky */}
         <aside className="hidden lg:block">
           <nav className="sticky top-24 flex flex-col">
             <div className="space-y-0.5">
               <p className="text-[11px] font-semibold text-ink-400 dark:text-zinc-500 uppercase tracking-wider px-3 pb-2">
                 Documentation
               </p>
-              {SECTIONS.map((s) => (
-                
-                  key={s.id}
-                  href={`#${s.id}`}
-                  onClick={() => handleNavClick(s.id)}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                    active === s.id
-                      ? "bg-brand-50 text-brand-800 font-medium dark:bg-brand-500/10 dark:text-brand-300"
-                      : "text-ink-600 hover:bg-ink-50 hover:text-ink-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                  )}
-                >
-                  <s.icon size={15} />
-                  {s.label}
-                </a>
-              ))}
+              {SECTIONS.map((s) => {
+                const Icon = s.icon;
+                return (
+                  
+                    key={s.id}
+                    href={`#${s.id}`}
+                    onClick={() => handleNavClick(s.id)}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                      active === s.id
+                        ? "bg-brand-50 text-brand-800 font-medium dark:bg-brand-500/10 dark:text-brand-300"
+                        : "text-ink-600 hover:bg-ink-50 hover:text-ink-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    )}
+                  >
+                    <Icon size={15} />
+                    {s.label}
+                  </a>
+                );
+              })}
             </div>
 
-            {/* Bouton mode sombre, en bas de la sidebar */}
             <div className="mt-4 pt-3 border-t border-ink-200 dark:border-zinc-800">
               <button
                 onClick={toggle}
@@ -136,7 +136,6 @@ export default function DocsPage() {
           </nav>
         </aside>
 
-        {/* Contenu */}
         <article className="min-w-0 space-y-16 pb-10">
           <section id="introduction">
             <h1 className="text-3xl font-medium text-ink-900 dark:text-zinc-100 tracking-tight">
