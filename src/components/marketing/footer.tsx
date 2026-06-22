@@ -74,7 +74,7 @@ export function MarketingFooter() {
 
         {/* Disclaimer réglementaire */}
         <div className="mt-10 pt-6 border-t border-ink-100">
-          <p className="text-xs text-ink-400 leading-relaxed max-w-3xl">
+          <p className="text-xs text-ink-400 leading-relaxed text-center">
             Verzapay n&apos;est pas une banque et ne fournit pas elle-même de services de monnaie électronique. Les opérations d&apos;encaissement et de décaissement sont exécutées par l&apos;intermédiaire de solutions de paiement agréées, intégrées à notre plateforme.
           </p>
         </div>
