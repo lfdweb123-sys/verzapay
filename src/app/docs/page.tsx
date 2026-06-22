@@ -105,7 +105,7 @@ export default function DocsPage() {
               {SECTIONS.map((s) => {
                 const Icon = s.icon;
                 return (
-                  
+                  <a
                     key={s.id}
                     href={`#${s.id}`}
                     onClick={() => handleNavClick(s.id)}
