@@ -1,0 +1,90 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ───────────────────────────────────────────────
+    // Utilisateurs
+    // ───────────────────────────────────────────────
+    match /users/{uid} {
+      allow read, update: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    // ───────────────────────────────────────────────
+    // Entreprises
+    // ───────────────────────────────────────────────
+    match /companies/{companyId} {
+      allow read: if request.auth != null &&
+        resource.data.members.hasAny([request.auth.uid]);
+
+      // Mise à jour limitée aux membres ; les champs financiers sensibles
+      // (walletBalance, apiKeySecretHash, kycStatus...) sont en pratique
+      // toujours écrits par les routes API serveur (Admin SDK), qui
+      // contournent ces règles. Cette règle couvre les mises à jour
+      // légitimes faites depuis le client (ex: legalInfo, displayName).
+      allow update: if request.auth != null &&
+        resource.data.members.hasAny([request.auth.uid]);
+
+      allow create: if false; // uniquement via /api/companies/create (Admin SDK)
+      allow delete: if false;
+
+      // Transactions : lecture par les membres, écriture interdite côté client
+      match /transactions/{txId} {
+        allow read: if request.auth != null &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.members.hasAny([request.auth.uid]);
+        allow write: if false;
+      }
+
+      // Décaissements : lecture par les membres, écriture interdite côté client
+      match /payouts/{poId} {
+        allow read: if request.auth != null &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.members.hasAny([request.auth.uid]);
+        allow write: if false;
+      }
+
+      // Journal comptable (ledger) : lecture seule
+      match /ledger/{entryId} {
+        allow read: if request.auth != null &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.members.hasAny([request.auth.uid]);
+        allow write: if false;
+      }
+
+      // Invitations d'équipe : lecture par les membres, écriture interdite
+      // côté client (passe par /api/team/invite et /api/team/respond)
+      match /invites/{inviteId} {
+        allow read: if request.auth != null &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.members.hasAny([request.auth.uid]);
+        allow delete: if request.auth != null &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    // ───────────────────────────────────────────────
+    // Notifications in-app
+    // ───────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      // Seul le champ "read" peut être modifié par le propriétaire (marquer comme lu)
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if false;
+    }
+
+    // ───────────────────────────────────────────────
+    // Codes 2FA — jamais accessibles côté client
+    // ───────────────────────────────────────────────
+    match /twoFactorCodes/{uid} {
+      allow read, write: if false; // uniquement /api/auth/2fa/* (Admin SDK)
+    }
+
+    // ───────────────────────────────────────────────
+    // Messages de contact/support — écriture uniquement via API (anti-spam)
+    // ───────────────────────────────────────────────
+    match /contactMessages/{messageId} {
+      allow read, write: if false; // uniquement /api/contact (Admin SDK)
+    }
+  }
+}
