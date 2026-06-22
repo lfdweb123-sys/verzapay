@@ -73,7 +73,7 @@ export default function SettingsPage() {
 
       {/* Onglet Profil */}
       {tab === "profile" && user && (
-        <div className="space-y-5 max-w-2xl">
+        <div className="space-y-5 max-w-7xl">
           <div className="card-base p-5 space-y-4">
             <div className="flex items-center gap-2.5">
               <User size={18} className="text-brand-700" />
@@ -104,7 +104,7 @@ export default function SettingsPage() {
 
       {/* Onglet Sécurité : 2FA + statut KYC */}
       {tab === "security" && user && (
-        <div className="space-y-5 max-w-2xl">
+        <div className="space-y-5 max-w-7xl">
           <TwoFactorSettings user={user} appUser={appUser} />
 
           {activeCompany && (
@@ -135,7 +135,7 @@ export default function SettingsPage() {
 
       {/* Onglet Entreprise : infos générales + légales */}
       {tab === "company" && activeCompany && (
-        <div className="space-y-5 max-w-2xl">
+        <div className="space-y-5 max-w-7xl">
           <div className="card-base p-5 space-y-4">
             <div className="flex items-center gap-2.5">
               <Building2 size={18} className="text-brand-700" />
@@ -167,13 +167,13 @@ export default function SettingsPage() {
 
       {/* Onglet Clé API */}
       {tab === "api" && activeCompany && (
-        <div className="max-w-2xl">
+        <div className="max-w-7xl">
           <ApiKeyManager company={activeCompany} />
         </div>
       )}
 
       {!activeCompany && tab !== "profile" && tab !== "security" && (
-        <div className="card-base p-8 text-center max-w-2xl">
+        <div className="card-base p-8 text-center max-w-7xl">
           <p className="text-sm text-ink-500">Créez ou sélectionnez une entreprise pour accéder à cette section.</p>
         </div>
       )}

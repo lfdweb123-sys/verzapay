@@ -43,10 +43,10 @@ export function KycSection() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-brand-700 flex items-center justify-center text-white text-sm font-semibold">
-                    BF
+                    BZ
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-ink-900">Boutique Faso</p>
+                    <p className="text-sm font-medium text-ink-900">Boutique Zack</p>
                     <p className="text-xs text-ink-500">Bénin · E-commerce</p>
                   </div>
                 </div>

@@ -17,16 +17,8 @@ export function Hero() {
         <div className="grid lg:grid-cols-[1fr_460px] gap-12 lg:gap-8 items-center">
           {/* Colonne texte */}
           <div className="max-w-xl mx-auto lg:mx-0 text-center lg:text-left flex flex-col items-center lg:items-start">
-            <div className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
-              Encaissement &amp; décaissement pour l&apos;Ouest africain
-            </div>
-
-            <h1 className="mt-5 text-[2.5rem] leading-[1.08] sm:text-5xl sm:leading-[1.05] lg:text-[3.4rem] lg:leading-[1.04] font-medium text-ink-900 tracking-tight">
-              Encaissez vos clients,
-              <br />
-              reversez vos marchands.
-              <br />
+            <h1 className="text-[1.9rem] leading-[1.2] sm:text-5xl sm:leading-[1.05] lg:text-[3.4rem] lg:leading-[1.04] font-medium text-ink-900 tracking-tight">
+              Encaissez vos clients, reversez vos marchands.{" "}
               <span className="text-brand-700">Une seule plateforme.</span>
             </h1>
 
@@ -74,7 +66,7 @@ function PaymentFlowCard() {
 
         {/* Montant */}
         <div className="px-5 pt-5 pb-4 text-center border-b border-ink-100">
-          <p className="text-xs text-ink-500">Boutique Faso vous demande</p>
+          <p className="text-xs text-ink-500">Boutique Zack vous demande</p>
           <p className="text-3xl font-medium text-ink-900 mt-1 tabular-nums">25 000 XOF</p>
           <p className="text-xs text-ink-500 mt-1">Commande #1234 — Robe wax taille M</p>
         </div>
