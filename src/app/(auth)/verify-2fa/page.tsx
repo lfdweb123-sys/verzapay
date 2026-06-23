@@ -22,6 +22,14 @@ export default function Verify2FAPage() {
 
   const isAdmin = Boolean((appUser as { isAdmin?: boolean } | null)?.isAdmin);
 
+  // On détermine si on a tout ce qu'il faut pour savoir si la 2FA doit
+  // réellement être affichée : auth chargée, profil Firestore chargé.
+  // Tant que ce n'est pas le cas, on ne rend JAMAIS le formulaire (voir
+  // le render plus bas), ce qui évite le flash du formulaire 2FA avant
+  // que la redirection vers /dashboard ne soit déclenchée.
+  const profileReady = !loading && !!user && !!appUser;
+  const twoFARequired = profileReady && !twoFactorVerified && appUser?.twoFactorEnabled !== false;
+
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace("/login"); return; }
@@ -116,6 +124,22 @@ export default function Verify2FAPage() {
   async function handleCancel() {
     await logout();
     router.replace("/login");
+  }
+
+  // Tant qu'on n'a pas la certitude que la 2FA est requise (profil pas
+  // encore chargé, ou 2FA non requise/déjà validée en attente de
+  // redirection), on affiche un loader neutre — jamais le formulaire.
+  // C'est ça qui supprime le flash du formulaire 2FA pour les comptes
+  // où la 2FA n'est pas activée.
+  if (!twoFARequired) {
+    return (
+      <AuthLayout>
+        <Logo size="md" />
+        <div className="mt-8 flex justify-center">
+          <Loader2 size={20} className="animate-spin text-ink-400" />
+        </div>
+      </AuthLayout>
+    );
   }
 
   return (
