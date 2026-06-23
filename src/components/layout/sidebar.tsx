@@ -258,10 +258,13 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
           </div>
 
           {/* User footer + déconnexion bien visible */}
+          {/* Mobile : avatar + bouton "Déconnexion" sur une seule ligne, nom/email masqués
+              pour rester compact. Desktop (lg:) : nom/email au-dessus, bouton pleine largeur. */}
           {/* pb-[max(0.75rem,env(safe-area-inset-bottom))] : remonte le contenu au-dessus
               de la barre de gestes / encoche sur mobile (iOS notamment). */}
           <div className="border-t border-ink-200 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
-            <div className={cn("flex items-center gap-2.5", collapsed && "lg:justify-center")}>
+            {/* Nom + email : visibles uniquement à partir de lg: */}
+            <div className={cn("hidden lg:flex items-center gap-2.5", collapsed && "lg:justify-center")}>
               <UserAvatar photoURL={appUser?.photoURL} name={appUser?.displayName ?? user?.email ?? "U"} size={32} />
               <div className={cn("flex-1 min-w-0", collapsed && "lg:hidden")}>
                 <p className="text-sm font-medium text-ink-900 truncate">{appUser?.displayName ?? "—"}</p>
@@ -269,23 +272,27 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
               </div>
             </div>
 
-            <button
-              onClick={handleLogout}
-              title={collapsed ? "Déconnexion" : undefined}
-              className={cn(
-                "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-danger-700 bg-danger-50 hover:bg-danger-100 transition-colors",
-                collapsed && "lg:justify-center lg:px-2"
-              )}
-            >
-              <LogOut size={16} />
-              <span className={cn(collapsed && "lg:hidden")}>Déconnexion</span>
-            </button>
+            <div className={cn("flex items-center gap-2", collapsed && "lg:justify-center")}>
+              {/* Avatar visible seulement sur mobile ici (déjà affiché au-dessus sur desktop) */}
+              <div className="lg:hidden">
+                <UserAvatar photoURL={appUser?.photoURL} name={appUser?.displayName ?? user?.email ?? "U"} size={32} />
+              </div>
+              <button
+                onClick={handleLogout}
+                title={collapsed ? "Déconnexion" : undefined}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-danger-700 bg-danger-50 hover:bg-danger-100 transition-colors",
+                  collapsed && "lg:flex-initial lg:w-9 lg:h-9 lg:p-0"
+                )}
+              >
+                <LogOut size={16} />
+                <span className={cn(collapsed && "lg:hidden")}>Déconnexion</span>
+              </button>
+            </div>
           </div>
         </div>
-
         {/* Collapse button (desktop uniquement) */}
         <button
-          onClick={() => onCollapse(!collapsed)}
           className="hidden lg:flex absolute -right-3.5 top-20 w-7 h-7 rounded-full bg-white border border-ink-200 items-center justify-center shadow-card hover:bg-ink-50 transition-colors z-10"
           aria-label={collapsed ? "Développer la sidebar" : "Réduire la sidebar"}
         >
