@@ -22,6 +22,7 @@ export interface AppUser {
   activeCompanyId?: string | null;
   fcmTokens?: string[];
   isAdmin?: boolean;
+  theme?: "light" | "dark"; // préférence d'affichage côté client
   twoFactorEnabled?: boolean;
   transactionTwoFactorEnabled?: boolean; // true par défaut — code 6 chiffres requis pour chaque retrait/paiement envoyé
   pendingEmail?: string | null; // demande de changement d'email en attente de validation admin

@@ -50,7 +50,7 @@ async function ensureUserDoc(user: User): Promise<AppUser> {
     activeCompanyId: null,
     fcmTokens: [],
     isAdmin: false,
-    theme?: 'light' | 'dark';
+    theme: 'light',
     twoFactorEnabled: true,
     transactionTwoFactorEnabled: true,
   };
