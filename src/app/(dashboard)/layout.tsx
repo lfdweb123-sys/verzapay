@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { PreferencesProvider } from "@/lib/preferences-context";
-import { CompanyProvider } from "@/lib/company-context"; // AJOUTE CETTE LIGNE
+import { CompanyProvider } from "@/lib/company-context";
 
 export default function DashboardGroupLayout({
   children,
@@ -39,6 +39,7 @@ export default function DashboardGroupLayout({
     }
   }, [appUser?.theme]);
 
+  // Garde d'authentification, 2FA et redirection des admins
   useEffect(() => {
     if (loading) return;
 
@@ -48,9 +49,16 @@ export default function DashboardGroupLayout({
     }
 
     const requires2FA = appUser?.twoFactorEnabled !== false;
-
     if (requires2FA && !twoFactorVerified) {
       router.replace("/verify-2fa");
+      return;
+    }
+
+    // Rediriger les admins vers /admin s'ils tentent d'accéder au dashboard marchand
+    const isAdmin = Boolean((appUser as { isAdmin?: boolean } | null)?.isAdmin);
+    if (isAdmin) {
+      router.replace("/admin");
+      return;
     }
   }, [user, appUser, loading, twoFactorVerified, router]);
 
@@ -81,15 +89,15 @@ export default function DashboardGroupLayout({
 
   if (!user) return null;
 
-  const requires2FA = appUser?.twoFactorEnabled !== false;
+  const isAdminUser = Boolean((appUser as { isAdmin?: boolean } | null)?.isAdmin);
+  if (isAdminUser) return null; // l'useEffect ci-dessus gère la redirection
 
-  if (requires2FA && !twoFactorVerified) {
-    return null;
-  }
+  const requires2FA = appUser?.twoFactorEnabled !== false;
+  if (requires2FA && !twoFactorVerified) return null;
 
   return (
     <PreferencesProvider>
-      <CompanyProvider> {/* AJOUTE CETTE LIGNE */}
+      <CompanyProvider>
         <div className="min-h-screen bg-ink-50 dark:bg-ink-900">
           <Sidebar
             collapsed={collapsed}

@@ -20,12 +20,15 @@ export default function Verify2FAPage() {
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const hasSentInitial = useRef(false);
 
+  const isAdmin = Boolean((appUser as { isAdmin?: boolean } | null)?.isAdmin);
+
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace("/login"); return; }
-    // Si la 2FA n'est pas requise pour ce compte, ou déjà vérifiée pour cette session → direct dashboard
+
+    // Si 2FA pas requise ou déjà vérifiée → redirection selon rôle
     if (twoFactorVerified || appUser?.twoFactorEnabled === false) {
-      router.replace("/dashboard");
+      router.replace(isAdmin ? "/admin" : "/dashboard");
       return;
     }
     if (!hasSentInitial.current && appUser) {
@@ -99,7 +102,8 @@ export default function Verify2FAPage() {
       if (!res.ok) throw new Error(data.error ?? "Code incorrect");
       setTwoFactorVerified(true);
       show("Connexion vérifiée", "success");
-      router.replace("/dashboard");
+      // Redirection selon rôle
+      router.replace(isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       show((err as Error).message, "error");
       setDigits(Array(6).fill(""));
@@ -124,7 +128,7 @@ export default function Verify2FAPage() {
 
       <h1 className="text-2xl font-medium text-ink-900 mt-4">Vérification en 2 étapes</h1>
       <p className="text-ink-600 text-sm mt-2">
-        Un code à 6 chiffres a été envoyé à <strong>{user?.email}</strong>. Saisissez-le ci-dessous pour accéder à votre tableau de bord.
+        Un code à 6 chiffres a été envoyé à <strong>{user?.email}</strong>. Saisissez-le ci-dessous pour accéder à votre espace.
       </p>
 
       <div className="flex items-center gap-2 mt-7" onPaste={handlePaste}>
