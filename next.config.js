@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ["firebase-admin"],
+  serverExternalPackages: ["firebase-admin", "jwks-rsa", "jose", "google-auth-library", "gaxios", "gtoken"],
   poweredByHeader: false,
   // Headers de sécurité
   async headers() {
