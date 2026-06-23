@@ -44,6 +44,12 @@ export const createPayoutSchema = z.object({
   currency: z.literal("XOF").optional(),
   recipientPhone: z.string().min(6).max(30),
   recipientName: shortText(100),
+  // Code de l'opérateur mobile money choisi par l'utilisateur côté front
+  // (ex: "MTN_MONEY", "ORANGE_CI") quand plusieurs opérateurs sont actifs
+  // pour le pays résolu et qu'on ne peut pas en déduire un seul automatiquement.
+  // Optionnel : si absent, resolvePaymentMethod retombe sur sa propre logique
+  // de résolution (ou retourne "ambiguous" si plusieurs opérateurs collent).
+  recipientOperator: shortText(60),
   note: shortText(200),
   uid,
 });
