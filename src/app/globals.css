@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -108,27 +109,73 @@ body {
 
 @layer components {
   .input-base {
-    @apply w-full h-10 px-3 rounded-lg border border-ink-200 bg-white text-sm text-ink-900 placeholder:text-ink-400 transition-colors;
+    @apply w-full h-10 px-3 rounded-lg
+    border border-ink-200 dark:border-ink-700
+    bg-white dark:bg-ink-800
+    text-sm text-ink-900 dark:text-white
+    placeholder:text-ink-400 dark:placeholder:text-ink-500
+    transition-colors;
+
     @apply focus:outline-none focus:ring-2 focus:ring-brand-400/30 focus:border-brand-500;
   }
+
   .label-base {
-    @apply block text-sm font-medium text-ink-800 mb-1.5;
+    @apply block text-sm font-medium text-ink-800 dark:text-ink-200 mb-1.5;
   }
+
   .card-base {
-    @apply bg-white border border-ink-200 rounded-xl;
+    @apply bg-white dark:bg-ink-800
+    border border-ink-200 dark:border-ink-700
+    rounded-xl;
   }
+
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-brand-700 text-white text-sm font-medium transition-colors hover:bg-brand-800 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2
+    h-10 px-4 rounded-lg
+    bg-brand-700 text-white
+    text-sm font-medium
+    transition-colors
+    hover:bg-brand-800
+    active:scale-[0.98]
+    disabled:opacity-50
+    disabled:pointer-events-none;
   }
+
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-white border border-ink-200 text-ink-800 text-sm font-medium transition-colors hover:bg-ink-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2
+    h-10 px-4 rounded-lg
+    bg-white dark:bg-ink-800
+    border border-ink-200 dark:border-ink-700
+    text-ink-800 dark:text-white
+    text-sm font-medium
+    transition-colors
+    hover:bg-ink-50 dark:hover:bg-ink-700
+    active:scale-[0.98]
+    disabled:opacity-50
+    disabled:pointer-events-none;
   }
+
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg text-ink-600 text-sm font-medium transition-colors hover:bg-ink-100 hover:text-ink-900;
+    @apply inline-flex items-center justify-center gap-2
+    h-9 px-3 rounded-lg
+    text-ink-600 dark:text-ink-300
+    text-sm font-medium
+    transition-colors
+    hover:bg-ink-100 dark:hover:bg-ink-700
+    hover:text-ink-900 dark:hover:text-white;
   }
+
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-danger-500 text-white text-sm font-medium transition-colors hover:bg-danger-700 active:scale-[0.98] disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2
+    h-10 px-4 rounded-lg
+    bg-danger-500 text-white
+    text-sm font-medium
+    transition-colors
+    hover:bg-danger-700
+    active:scale-[0.98]
+    disabled:opacity-50;
   }
+
   .badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
   }

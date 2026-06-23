@@ -14,55 +14,81 @@ import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { PreferencesProvider } from "@/lib/preferences-context";
 
-export default function DashboardGroupLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardGroupLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, appUser, loading, twoFactorVerified, logout } = useAuth();
   const { show } = useToast();
   const router = useRouter();
   const pathname = usePathname();
+
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Garantit que le dark mode docs ne déborde jamais sur le dashboard
+  // Appliquer le thème utilisateur
   useEffect(() => {
-    document.documentElement.classList.remove("dark");
-  }, []);
+    const theme = appUser?.theme ?? "light";
+
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [appUser?.theme]);
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.replace("/login"); return; }
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
     const requires2FA = appUser?.twoFactorEnabled !== false;
+
     if (requires2FA && !twoFactorVerified) {
       router.replace("/verify-2fa");
     }
   }, [user, appUser, loading, twoFactorVerified, router]);
 
-  // Fermer le drawer mobile à chaque changement de route
+  // Fermer le menu mobile lors d'un changement de page
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
   const handleInactivityLogout = useCallback(async () => {
     await logout();
-    show("Vous avez été déconnecté(e) après 30 minutes d'inactivité.", "info");
+    show(
+      "Vous avez été déconnecté(e) après 30 minutes d'inactivité.",
+      "info"
+    );
     router.replace("/login");
   }, [logout, router, show]);
 
-  const { showWarning, secondsLeft, stayActive } = useInactivityLogout(handleInactivityLogout, Boolean(user));
+  const { showWarning, secondsLeft, stayActive } =
+    useInactivityLogout(handleInactivityLogout, Boolean(user));
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-ink-900">
         <Loader2 className="animate-spin text-brand-600" size={28} />
       </div>
     );
   }
+
   if (!user) return null;
+
   const requires2FA = appUser?.twoFactorEnabled !== false;
-  if (requires2FA && !twoFactorVerified) return null;
+
+  if (requires2FA && !twoFactorVerified) {
+    return null;
+  }
 
   return (
     <PreferencesProvider>
-      <div className="min-h-screen bg-ink-50">
+      <div className="min-h-screen bg-ink-50 dark:bg-ink-950">
         <Sidebar
           collapsed={collapsed}
           onCollapse={setCollapsed}
@@ -70,10 +96,11 @@ export default function DashboardGroupLayout({ children }: { children: React.Rea
           onMobileClose={() => setMobileOpen(false)}
         />
 
-        {/* Header */}
-        <DashboardHeader sidebarCollapsed={collapsed} onMenuClick={() => setMobileOpen(true)} />
+        <DashboardHeader
+          sidebarCollapsed={collapsed}
+          onMenuClick={() => setMobileOpen(true)}
+        />
 
-        {/* Contenu principal — largeur uniforme sur toutes les pages */}
         <main
           className={cn(
             "pt-16 pb-20 lg:pb-6 min-h-screen transition-all duration-300",
@@ -86,12 +113,14 @@ export default function DashboardGroupLayout({ children }: { children: React.Rea
           </div>
         </main>
 
-        {/* Bottom nav mobile */}
         <BottomNav />
-        {/* Initialisation FCM push */}
         <FcmInit />
-        {/* Avertissement avant déconnexion par inactivité */}
-        <InactivityWarningModal open={showWarning} secondsLeft={secondsLeft} onContinue={stayActive} />
+
+        <InactivityWarningModal
+          open={showWarning}
+          secondsLeft={secondsLeft}
+          onContinue={stayActive}
+        />
       </div>
     </PreferencesProvider>
   );
