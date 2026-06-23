@@ -25,7 +25,7 @@ const ADMIN_NAV = [
   { href: "/admin/wallets", label: "Portefeuilles", icon: Wallet },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
   { href: "/admin/email-requests", label: "Demandes d'email", icon: Mail },
-  { href: "/admin/team", label: "Équipe Verzapay", icon: UserCog },
+  { href: "/admin/teams", label: "Équipe Verzapay", icon: UserCog },
 ];
 
 export function AdminSidebar() {
