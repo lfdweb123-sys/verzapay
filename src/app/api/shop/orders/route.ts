@@ -1,9 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { createJoonapayPayment } from "@/lib/joonapay";
+import { createJoonapayPayment, getJoonapayMisc } from "@/lib/joonapay";
 import { createShopOrderSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { Transaction, ShopOrderItem } from "@/types";
+
+const DEFAULT_DUE_DAYS = 7;
+
+function computeDueDate(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+type JoonapayCountryLike = {
+  uuid: string;
+  code: string;
+  indicator: string;
+  currency: string;
+  payment_enabled: boolean;
+};
+
+function resolveCountry(
+  countries: JoonapayCountryLike[],
+  customerPhone: string | null | undefined,
+  companyCountryCode: string | undefined
+): JoonapayCountryLike | null {
+  const active = countries.filter((c) => c.payment_enabled);
+
+  if (customerPhone) {
+    const phone = customerPhone.startsWith("+") ? customerPhone : `+${customerPhone}`;
+    const candidates = active
+      .filter((c) => phone.startsWith(c.indicator))
+      .sort((a, b) => b.indicator.length - a.indicator.length);
+    if (candidates.length > 0) return candidates[0];
+  }
+
+  if (companyCountryCode) {
+    const byCompany = active.find((c) => c.code === companyCountryCode);
+    if (byCompany) return byCompany;
+  }
+
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,14 +105,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Le montant total de la commande est trop faible" }, { status: 400 });
     }
 
-    // NOTE: `return_url` n'existe pas dans CreatePaymentRequest côté JoonaPay
-    // (vérifié contre le schéma officiel — voir payments/route.ts). Le retour
-    // client après paiement se gère via webhook_url + le payment_link affiché
-    // sur la page de checkout, pas via un paramètre de redirection.
+    // Résolution du country_uuid requis par JoonaPay
+    const miscRes = await getJoonapayMisc({ payment_enabled: true });
+    const country = resolveCountry(miscRes.data?.countries ?? [], customerPhone, company.countryCode);
+
+    if (!country) {
+      return NextResponse.json(
+        { error: "Impossible de déterminer le pays pour ce paiement. Vérifiez le numéro de téléphone (format international, ex: +22961000000)." },
+        { status: 400 }
+      );
+    }
+
+    const dueDate = computeDueDate(DEFAULT_DUE_DAYS);
+    const resolvedCustomerName = customerName?.trim() || "Client Verzapay";
+
     const joonaRes = await createJoonapayPayment({
       amount: totalAmount,
-      currency: "XOF",
+      currency: country.currency,
+      country_uuid: country.uuid,
+      due_date: dueDate,
       description: `Commande boutique ${shop.name}`,
+      customer_name: resolvedCustomerName,
+      customer_phone: customerPhone ?? undefined,
+      customer_email: customerEmail ?? undefined,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
     });
 
@@ -84,8 +138,6 @@ export async function POST(req: NextRequest) {
     const commission = Math.round(totalAmount * (company.commissionRate ?? 0.015));
     const netAmount = totalAmount - commission;
 
-    // Le schéma PaymentCreatedResponse expose `uuid` (pas `id`) et `payment_link`
-    // (pas `checkout_url`) — voir payments/route.ts pour la même convention.
     const joonapayPaymentUuid = joonaRes.data?.uuid ?? null;
     const paymentLink = joonaRes.data?.payment_link ?? "#";
 
@@ -95,14 +147,14 @@ export async function POST(req: NextRequest) {
       companyId: shop.companyId,
       joonapayPaymentId: joonapayPaymentUuid,
       amount: totalAmount,
-      currency: "XOF",
+      currency: country.currency,
       commission,
       netAmount,
       method: "mobile_money",
       status: "pending",
       description: `Commande boutique ${shop.name}`,
-      customerName,
-      customerPhone,
+      customerName: resolvedCustomerName,
+      customerPhone: customerPhone ?? null,
       customerEmail: customerEmail ?? null,
       createdAt: Date.now(),
       completedAt: null,
@@ -116,8 +168,8 @@ export async function POST(req: NextRequest) {
       companyId: shop.companyId,
       items: orderItems,
       totalAmount,
-      customerName,
-      customerPhone,
+      customerName: resolvedCustomerName,
+      customerPhone: customerPhone ?? null,
       customerEmail: customerEmail ?? null,
       customerAddress: customerAddress ?? null,
       status: "pending",
