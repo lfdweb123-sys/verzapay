@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useContext } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import { Copy, CheckCircle2, Key, Zap, ArrowDownLeft, ArrowUpRight, Webhook, AlertTriangle, Moon, Sun } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { DocsDarkContext } from "./layout";
 
 const SECTIONS = [
@@ -78,28 +77,25 @@ export default function DocsPage() {
     return () => observer.disconnect();
   }, []);
 
-  // Couleurs dérivées de l'état dark — remplace tous les dark: Tailwind
   const c = {
-    bg:           dark ? "#09090b" : "transparent",
-    text:         dark ? "#f4f4f5" : "#1A1A19",
-    textMuted:    dark ? "#a1a1aa" : "#5F5E5A",
-    textFaint:    dark ? "#71717a" : "#888780",
-    border:       dark ? "#27272a" : "#E4E2DA",
-    borderFaint:  dark ? "#27272a" : "#F1EFE8",
-    surfaceSoft:  dark ? "#18181b" : "rgba(248,248,247,0.6)",
-    surfaceCard:  dark ? "#18181b" : "#ffffff",
-    navActive:    dark ? "rgba(31,111,196,0.12)" : "#E6F1FB",
-    navActiveText:dark ? "#93c5fd" : "#0C447C",
-    navHover:     dark ? "#27272a" : "#F8F8F7",
-    navHoverText: dark ? "#f4f4f5" : "#1A1A19",
-    codeBg:       dark ? "#09090b" : "#18181b",
-    warningBg:    dark ? "rgba(186,117,23,0.1)" : "#FAEEDA",
-    warningBorder:dark ? "rgba(186,117,23,0.3)" : "#F0C97A",
-    warningText:  dark ? "#fbbf24" : "#412402",
-    tableHead:    dark ? "#18181b" : "#F8F8F7",
-    brandCode:    dark ? "#93c5fd" : "#114A82",
-    brandCodeBg:  dark ? "rgba(31,111,196,0.12)" : "#E6F1FB",
-    inlineCode:   dark ? "#27272a" : "#F1EFE8",
+    bg:            dark ? "#09090b" : "transparent",
+    text:          dark ? "#f4f4f5" : "#1A1A19",
+    textMuted:     dark ? "#a1a1aa" : "#5F5E5A",
+    textFaint:     dark ? "#71717a" : "#888780",
+    border:        dark ? "#27272a" : "#E4E2DA",
+    borderFaint:   dark ? "#27272a" : "#F1EFE8",
+    surfaceSoft:   dark ? "#18181b" : "rgba(248,248,247,0.6)",
+    navActive:     dark ? "rgba(31,111,196,0.12)" : "#E6F1FB",
+    navActiveText: dark ? "#93c5fd" : "#0C447C",
+    navHover:      dark ? "#27272a" : "#F8F8F7",
+    navHoverText:  dark ? "#f4f4f5" : "#1A1A19",
+    warningBg:     dark ? "rgba(186,117,23,0.1)" : "#FAEEDA",
+    warningBorder: dark ? "rgba(186,117,23,0.3)" : "#F0C97A",
+    warningText:   dark ? "#fbbf24" : "#412402",
+    tableHead:     dark ? "#18181b" : "#F8F8F7",
+    brandCode:     dark ? "#93c5fd" : "#114A82",
+    brandCodeBg:   dark ? "rgba(31,111,196,0.12)" : "#E6F1FB",
+    inlineCode:    dark ? "#27272a" : "#F1EFE8",
     inlineCodeText:dark ? "#e4e4e7" : "#2C2C2A",
   };
 
@@ -184,10 +180,7 @@ export default function DocsPage() {
 
           {/* Introduction */}
           <section id="introduction">
-            <h1
-              className="text-3xl font-medium tracking-tight"
-              style={{ color: c.text }}
-            >
+            <h1 className="text-3xl font-medium tracking-tight" style={{ color: c.text }}>
               Documentation API Verzapay
             </h1>
             <p className="mt-4 text-base leading-relaxed" style={{ color: c.textMuted }}>
@@ -195,10 +188,7 @@ export default function DocsPage() {
             </p>
             <div
               className="mt-5 rounded-xl p-4"
-              style={{
-                backgroundColor: c.surfaceSoft,
-                border: `1px solid ${c.border}`,
-              }}
+              style={{ backgroundColor: c.surfaceSoft, border: `1px solid ${c.border}` }}
             >
               <p className="text-sm" style={{ color: c.textMuted }}>
                 <strong style={{ color: c.text }}>URL de base :</strong>{" "}
