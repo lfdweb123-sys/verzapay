@@ -140,7 +140,7 @@ export default function AdminWalletsPage() {
       <div className="card-base p-4 flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-ink-600">
           <Wallet size={15} />
-          Solde cumulé Firestore (walletBalance entreprises)
+          Solde cumulé  (des marchands sur Verzapay)
         </div>
         <p className="text-sm font-medium tabular-nums text-ink-900">{formatXOF(totalFirestore)}</p>
       </div>

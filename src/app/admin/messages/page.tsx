@@ -90,7 +90,7 @@ export default function AdminMessagesPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-5 max-w-7xl">
       <div>
         <h1 className="text-lg font-medium text-ink-900">Messages</h1>
         <p className="text-sm text-ink-500">Envoyez un email et/ou une notification push à vos marchands</p>
