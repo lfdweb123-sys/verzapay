@@ -176,7 +176,7 @@ export default function SettingsPage() {
 
       {/* Onglet Affichage */}
       {tab === "display" && (
-        <div className="space-y-5 max-w-2xl">
+        <div className="space-y-5 max-w-7xl">
           <DisplaySettings />
         </div>
       )}
