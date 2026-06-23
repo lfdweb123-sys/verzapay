@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
+@custom-variant dark (&:where(.dark, .dark *, html.dark, html.dark *));
 
 @theme {
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -71,14 +70,21 @@
   --bottomnav-h: 64px;
 }
 
+/* ── Borders ─────────────────────────────────────────────────────────────────── */
+
 * {
   border-color: var(--color-ink-200);
 }
 
-/* Dark mode border override */
-.dark * {
-  border-color: #27272a; /* zinc-800 */
+html.dark * {
+  border-color: #27272a;
 }
+
+#docs-root.dark * {
+  border-color: #27272a;
+}
+
+/* ── Base html / body ────────────────────────────────────────────────────────── */
 
 html,
 body {
@@ -88,16 +94,16 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Dark mode on html/body */
-html.dark,
 html.dark body {
-  background: #09090b; /* zinc-950 */
-  color: #f4f4f5;      /* zinc-100 */
+  background: #09090b;
+  color: #f4f4f5;
 }
 
 body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
   width: 8px;
@@ -114,11 +120,18 @@ body {
   background: var(--color-ink-400);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #3f3f46; /* zinc-700 */
+html.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
 }
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #52525b; /* zinc-600 */
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+#docs-root.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+#docs-root.dark ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }
 
 .scrollbar-none::-webkit-scrollbar {
@@ -128,6 +141,8 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ── Components ──────────────────────────────────────────────────────────────── */
 
 @layer components {
   .input-base {
