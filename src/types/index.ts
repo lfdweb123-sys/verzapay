@@ -1,6 +1,9 @@
 export type KycStatus = "not_started" | "awaiting_submission" | "pending" | "review" | "approved" | "rejected";
 
-export type PaymentMethod = "mobile_money" | "card" | "wave";
+// ← AJOUTÉ "bank_transfer" : nécessaire pour distinguer les paiements par
+// virement bancaire de ceux par carte une fois CREDIT_CARD/BANK_TRANSFER
+// activés côté JoonaPay. "wave" est laissé tel quel, inchangé.
+export type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "wave";
 
 export type TransactionStatus =
   | "pending"

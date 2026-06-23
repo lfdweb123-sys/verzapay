@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Copy, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Loader2, CheckCircle2, Smartphone, CreditCard, Landmark, Layers } from "lucide-react";
 import Link from "next/link";
 import { useCompany } from "@/lib/company-context";
 import { useAuth } from "@/lib/auth-context";
@@ -9,6 +9,15 @@ import { useToast } from "@/components/ui/toast";
 import { ImageUploadField } from "@/components/payments/image-upload-field";
 import { TransactionTwoFactorModal } from "@/components/payments/transaction-two-factor-modal";
 import { usePreferences } from "@/lib/preferences-context";
+
+type PaymentChannel = "ANY" | "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER";
+
+const CHANNEL_OPTIONS: { value: PaymentChannel; label: string; hint: string; icon: typeof Smartphone }[] = [
+  { value: "ANY", label: "Toutes les méthodes", hint: "Le client choisit", icon: Layers },
+  { value: "MOBILE_MONEY", label: "Mobile Money", hint: "MTN, Moov...", icon: Smartphone },
+  { value: "CREDIT_CARD", label: "Carte bancaire", hint: "Visa, Mastercard", icon: CreditCard },
+  { value: "BANK_TRANSFER", label: "Virement bancaire", hint: "IBAN / RIB", icon: Landmark },
+];
 
 export default function NewPaymentPage() {
   const { activeCompany } = useCompany();
@@ -21,6 +30,10 @@ export default function NewPaymentPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  // Pré-sélection par défaut : "ANY" — le client voit toutes les méthodes
+  // actives sur la page JoonaPay et choisit lui-même. Le marchand peut
+  // restreindre à une méthode précise s'il le souhaite.
+  const [channel, setChannel] = useState<PaymentChannel>("ANY");
   const [loading, setLoading] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [result, setResult] = useState<{ checkoutUrl: string; paymentId: string } | null>(null);
@@ -70,6 +83,7 @@ export default function NewPaymentPage() {
           customerPhone,
           imageBase64,
           uid: user.uid,
+          channel, // "ANY" | "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER"
         }),
       });
       const data = await res.json();
@@ -95,6 +109,16 @@ export default function NewPaymentPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     show("Lien copié !", "success");
+  }
+
+  function resetForm() {
+    setResult(null);
+    setAmount("");
+    setDescription("");
+    setCustomerName("");
+    setCustomerPhone("");
+    setImageBase64(null);
+    setChannel("ANY");
   }
 
   return (
@@ -124,9 +148,41 @@ export default function NewPaymentPage() {
               <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+229 96 00 00 00" className="input-base" />
             </div>
           </div>
+
+          <div>
+            <label className="label-base">Méthode de paiement</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {CHANNEL_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                const active = channel === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setChannel(opt.value)}
+                    className={`flex flex-col items-center gap-1 rounded-xl border py-3 px-2 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-brand-700 bg-brand-50 text-brand-800"
+                        : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                    }`}
+                  >
+                    <Icon size={18} />
+                    <span>{opt.label}</span>
+                    <span className="text-[10px] text-ink-400 font-normal">{opt.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-ink-400 mt-1.5">
+              {channel === "ANY"
+                ? "Le client verra toutes les méthodes disponibles pour son pays sur la page de paiement et choisira lui-même."
+                : "Le lien forcera cette méthode précise. Si elle n'est pas disponible pour le pays du client, la création échouera."}
+            </p>
+          </div>
+
           <ImageUploadField value={imageBase64} onChange={setImageBase64} />
           <p className="text-xs text-ink-500 bg-ink-50 rounded-lg p-3">
-            Mobile Money et carte bancaire acceptés. Une commission de <strong>{((activeCompany?.commissionRate ?? 0.015) * 100).toFixed(1)}%</strong> sera prélevée sur chaque paiement réussi.
+            Mobile Money, carte bancaire et virement acceptés selon votre configuration JoonaPay. Une commission de <strong>{((activeCompany?.commissionRate ?? 0.015) * 100).toFixed(1)}%</strong> sera prélevée sur chaque paiement réussi.
           </p>
           {requires2FA && (
             <p className="text-xs text-ink-400 bg-ink-50 rounded-lg p-2.5">
@@ -159,7 +215,7 @@ export default function NewPaymentPage() {
               <ExternalLink size={15} /> Ouvrir
             </a>
           </div>
-          <button onClick={() => { setResult(null); setAmount(""); setDescription(""); setCustomerName(""); setCustomerPhone(""); setImageBase64(null); }} className="btn-ghost text-sm">
+          <button onClick={resetForm} className="btn-ghost text-sm">
             Créer un autre lien
           </button>
         </div>

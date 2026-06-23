@@ -36,6 +36,11 @@ export const createPaymentSchema = z.object({
   customerEmail: z.string().email().max(150).optional().nullable(),
   imageBase64: base64Image,
   uid,
+  // Méthode de paiement souhaitée par le marchand.
+  // "ANY" (ou absent) = pas de méthode imposée : JoonaPay affichera toutes
+  // les méthodes actives pour le pays du client sur sa page de paiement,
+  // et c'est le client qui choisit. Sinon, verrouille un canal précis.
+  channel: z.enum(["ANY", "MOBILE_MONEY", "CREDIT_CARD", "BANK_TRANSFER"]).optional().nullable(),
 });
 
 export const createPayoutSchema = z.object({

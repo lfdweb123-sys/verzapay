@@ -73,11 +73,16 @@ export interface JoonapayMiscData {
   payment_methods: JoonapayPaymentMethod[];
 }
 
+// NOTE: le paramètre `channel` côté API REST accepte "CARD" en valeur de
+// query string pour filtrer (cf doc /misc), mais la réponse retourne bien
+// "CREDIT_CARD" dans payment_methods[].channel. On ne s'en sert pas ici pour
+// éviter la confusion : on récupère tout (sans filtre channel) et on filtre
+// nous-mêmes côté code avec les vraies valeurs d'enum de la réponse.
 export async function getJoonapayMisc(params?: {
   payment_enabled?: boolean;
   transfer_enabled?: boolean;
   country_code?: string;
-  channel?: "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER";
+  channel?: "MOBILE_MONEY" | "CARD" | "BANK_TRANSFER"; // valeur d'enum du FILTRE (requête), pas de la réponse
 }): Promise<JoonapayApiResponse<JoonapayMiscData>> {
   const qs = params
     ? "?" + new URLSearchParams(
@@ -131,6 +136,8 @@ export interface CreatePaymentParams {
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;                 // format E.164 ex: +22961000000
+  // Méthode de paiement (carte / mobile money / virement) — obtenu via GET /misc
+  payment_method_uuid?: string;            // ← AJOUTÉ : sélectionne CREDIT_CARD / BANK_TRANSFER / MOBILE_MONEY
   // Options
   merchant_transaction_id?: string;
   notification_by?: ("EMAIL" | "SMS" | "WHATSAPP")[];
