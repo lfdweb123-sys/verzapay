@@ -12,11 +12,16 @@ import type { Payout } from "@/types";
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
-    // NOTE: si tu ajoutes un sélecteur d'opérateur côté front (recommandé quand
-    // plusieurs opérateurs sont actifs pour un pays), accepte aussi
-    // `recipientOperator` dans createPayoutSchema.
-    const { companyId, amount, currency, recipientPhone, recipientName, recipientOperator, note, uid } =
+    const { companyId, amount, currency, recipientPhone, recipientName, note, uid } =
       parseOrThrow(createPayoutSchema, raw);
+
+    // NOTE: `recipientOperator` n'est pas (encore) déclaré dans createPayoutSchema,
+    // donc il n'est pas validé par parseOrThrow. On le lit directement depuis le
+    // payload brut en attendant la mise à jour du schéma. À terme, ajoute
+    // `recipientOperator` dans createPayoutSchema puis remonte-le dans la
+    // déstructuration ci-dessus pour bénéficier de la validation Zod/Yup.
+    const recipientOperator: string | undefined =
+      typeof raw?.recipientOperator === "string" ? raw.recipientOperator : undefined;
 
     const limited = await checkRateLimit(`payout:uid:${uid}`, 10, 3600); // 10 demandes / heure / utilisateur
     if (!limited.allowed) {
@@ -55,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     const methodResolution = resolvePaymentMethod(miscRes.data?.payment_methods ?? [], country.code, {
       requireTransferEnabled: true,
-      explicitMethodCode: recipientOperator,
+      explicitMethodCode: recipientOperator ?? undefined,
     });
 
     if (methodResolution.status === "none") {
