@@ -4,24 +4,28 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, ArrowDownLeft, ArrowUpRight, CreditCard, Users,
-  Wallet, UsersRound, Building2, LogOut, ShieldAlert, X, Menu, Mail, MessageSquare,
+  Wallet, UsersRound, Building2, LogOut, ShieldAlert, X, Menu, Mail,
+  MessageSquare, UserCog,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
+
+
 const ADMIN_NAV = [
   { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/admin/companies", label: "Entreprises", icon: Building2 },
+  { href: "/admin/merchants", label: "Marchands", icon: Users },
   { href: "/admin/payments", label: "Paiements entrants", icon: ArrowDownLeft },
   { href: "/admin/payouts", label: "Paiements sortants", icon: ArrowUpRight },
   { href: "/admin/transactions", label: "Transactions", icon: CreditCard },
-  { href: "/admin/customers", label: "Clients / fournisseurs", icon: Users },
+  { href: "/admin/customers", label: "Clients / fournisseurs", icon: UsersRound },
   { href: "/admin/wallets", label: "Portefeuilles", icon: Wallet },
-  { href: "/admin/teams", label: "Équipes", icon: UsersRound },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
   { href: "/admin/email-requests", label: "Demandes d'email", icon: Mail },
+  { href: "/admin/team", label: "Équipe Verzapay", icon: UserCog },
 ];
 
 export function AdminSidebar() {

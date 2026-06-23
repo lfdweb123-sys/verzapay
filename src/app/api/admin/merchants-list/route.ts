@@ -9,11 +9,14 @@ export async function GET(req: NextRequest) {
 
     const db = adminDb();
     const snap = await db.collection("users").limit(1000).get();
-    const merchants = snap.docs.map((d) => ({
-      uid: d.id,
-      displayName: d.data().displayName ?? "Utilisateur",
-      email: d.data().email ?? "—",
-    }));
+const merchants = snap.docs.map((d) => ({
+  uid: d.id,
+  displayName: d.data().displayName ?? "Utilisateur",
+  email: d.data().email ?? "—",
+  photoURL: d.data().photoURL ?? null,
+  createdAt: d.data().createdAt ?? 0,
+  disabled: d.data().disabled ?? false,
+}));
 
     return NextResponse.json({ merchants });
   } catch (err) {
