@@ -34,213 +34,313 @@ export async function POST(req: NextRequest) {
 
   const event = JSON.parse(rawBody);
   console.log(`📊 [KYC] Événement reçu: ${event.event}`);
-  console.log(`📊 [KYC] Données complètes:`, JSON.stringify(event.data, null, 2));
+  console.log(`📊 [KYC] Données brutes:`, JSON.stringify(event.data, null, 2));
   
   const db = adminDb();
 
-  // 🔥 SESSION CREATED - On stocke le sessionId
-  if (event.event === "session.created" || event.event === "session.viewed") {
-    console.log(`👁️ [KYC] Session ${event.event} reçue`);
+  // ============================================================
+  // 1. SESSION CREATED - Stocker sessionId
+  // ============================================================
+  if (event.event === "session.created") {
+    console.log("👁️ [KYC] Session créée");
     const sessionId = event.data?.id;
-    const metadata: { companyId?: string } = event.data?.metadata ?? {};
+    const metadata = event.data?.metadata || {};
+    const companyId = metadata.companyId;
+    const uid = metadata.uid;
     
     console.log(`📊 [KYC] Session ID: ${sessionId}`);
-    console.log(`📊 [KYC] Métadonnées:`, metadata);
+    console.log(`📊 [KYC] Company ID: ${companyId}`);
+    console.log(`📊 [KYC] UID: ${uid}`);
     
-    if (metadata.companyId) {
-      const companySnap = await db.collection("companies").doc(metadata.companyId).get();
-      if (companySnap.exists) {
-        await db.collection("companies").doc(metadata.companyId).update({ 
-          kycSessionId: sessionId
-        });
-        console.log(`✅ [KYC] SessionId ${sessionId} stocké pour l'entreprise ${metadata.companyId}`);
-      }
+    if (companyId && sessionId) {
+      // Stocker dans kyc_mappings
+      await db.collection("kyc_mappings").doc(sessionId).set({
+        companyId,
+        userId: uid,
+        sessionId,
+        verificationId: null,
+        status: "session_created",
+        createdAt: Date.now()
+      });
+      
+      // Mettre à jour l'entreprise
+      await db.collection("companies").doc(companyId).update({
+        kycSessionId: sessionId,
+        kycStatus: "awaiting_submission"
+      });
+      
+      console.log(`✅ [KYC] Mapping créé: ${sessionId} -> ${companyId}`);
     }
     return NextResponse.json({ ok: true });
   }
 
-  // 🔥 DOCUMENT SUBMITTED - On stocke le verificationId
+  // ============================================================
+  // 2. DOCUMENT SUBMITTED - Stocker verificationId
+  // ============================================================
   if (event.event === "document.submitted" || event.event === "verification.started") {
-    console.log(`📄 [KYC] ${event.event} reçu - Documents soumis`);
+    console.log(`📄 [KYC] ${event.event} reçu`);
     const verificationId = event.data?.id;
     const sessionId = event.data?.sessionId;
-    const metadata: { companyId?: string } = event.data?.metadata ?? {};
     
     console.log(`📊 [KYC] Verification ID: ${verificationId}`);
     console.log(`📊 [KYC] Session ID: ${sessionId}`);
-    console.log(`📊 [KYC] Métadonnées:`, metadata);
-    
-    let companyId = metadata.companyId;
 
-    // Si pas de companyId, chercher par sessionId
+    if (!verificationId) {
+      console.log("❌ [KYC] Pas de verificationId");
+      return NextResponse.json({ ok: true });
+    }
+
+    let companyId = null;
+    let uid = null;
+
+    // Chercher dans kyc_mappings par sessionId
+    if (sessionId) {
+      console.log(`🔍 [KYC] Recherche dans kyc_mappings par sessionId: ${sessionId}`);
+      const mappingSnap = await db.collection("kyc_mappings").doc(sessionId).get();
+      if (mappingSnap.exists) {
+        const mapping = mappingSnap.data()!;
+        companyId = mapping.companyId;
+        uid = mapping.userId;
+        console.log(`✅ [KYC] CompanyId trouvé dans kyc_mappings: ${companyId}`);
+      }
+    }
+
+    // Chercher dans companies par kycSessionId
     if (!companyId && sessionId) {
-      console.log(`🔍 [KYC] Recherche par sessionId: ${sessionId}`);
-      const companiesSnapshot = await db
+      console.log(`🔍 [KYC] Recherche dans companies par kycSessionId: ${sessionId}`);
+      const companiesSnap = await db
         .collection("companies")
         .where("kycSessionId", "==", sessionId)
         .get();
       
-      if (!companiesSnapshot.empty) {
-        companyId = companiesSnapshot.docs[0].id;
-        console.log(`✅ [KYC] Entreprise trouvée par sessionId: ${companyId}`);
+      if (!companiesSnap.empty) {
+        const doc = companiesSnap.docs[0];
+        companyId = doc.id;
+        uid = doc.data()?.ownerUid;
+        console.log(`✅ [KYC] CompanyId trouvé dans companies: ${companyId}`);
       }
     }
 
-    if (companyId) {
-      await db.collection("companies").doc(companyId).update({ 
-        kycStatus: "pending",
-        kycVerificationId: verificationId // 🔥 STOCKAGE DU verificationId
-      });
-      console.log(`✅ [KYC] Statut mis à jour: pending pour ${companyId}`);
-      console.log(`✅ [KYC] VerificationId stocké: ${verificationId}`);
-    } else {
-      console.log(`❌ [KYC] Impossible de trouver l'entreprise pour le document.submitted`);
+    if (!companyId) {
+      console.log(`❌ [KYC] Impossible de trouver le companyId`);
+      return NextResponse.json({ ok: true });
     }
+
+    // 🔥 STOCKER LE MAPPING verificationId -> companyId
+    await db.collection("kyc_mappings").doc(verificationId).set({
+      companyId,
+      userId: uid,
+      sessionId,
+      verificationId,
+      status: "documents_submitted",
+      createdAt: Date.now()
+    });
+
+    // Mettre à jour l'entreprise
+    await db.collection("companies").doc(companyId).update({
+      kycVerificationId: verificationId,
+      kycStatus: "pending"
+    });
+
+    console.log(`✅ [KYC] Mapping créé: ${verificationId} -> ${companyId}`);
+    console.log(`✅ [KYC] Entreprise ${companyId} mise à jour: pending`);
+    
     return NextResponse.json({ ok: true });
   }
 
-  // 🔥 MANUAL REVIEW - On utilise le verificationId stocké
+  // ============================================================
+  // 3. MANUAL REVIEW - Recherche par verificationId OU sessionId
+  // ============================================================
   if (event.event === "verification.manual_review") {
     console.log("🔄 [KYC] Vérification en révision manuelle !");
     
-    const data = event.data;
-    const verificationId = data?.id;
-    const riskLevel = data?.riskLevel ?? "medium";
-    const fraudDetected = data?.fraudDetected ?? false;
+    const verificationId = event.data?.id;
+    const riskLevel = event.data?.riskLevel ?? "medium";
+    const fraudDetected = event.data?.fraudDetected ?? false;
     
-    console.log(`📊 [KYC] ID de vérification: ${verificationId}`);
-    console.log(`📊 [KYC] Niveau de risque: ${riskLevel}`);
-    console.log(`📊 [KYC] Fraude détectée: ${fraudDetected}`);
+    console.log(`📊 [KYC] Verification ID: ${verificationId}`);
+    console.log(`📊 [KYC] Risk Level: ${riskLevel}`);
+    console.log(`📊 [KYC] Fraud Detected: ${fraudDetected}`);
 
     if (!verificationId) {
-      console.log("❌ [KYC] Pas d'ID de vérification");
+      console.log("❌ [KYC] Pas de verificationId");
       return NextResponse.json({ ok: true });
     }
 
-    // 🔥 RECHERCHE PAR verificationId (qui a été stocké lors de document.submitted)
-    console.log(`🔍 [KYC] Recherche de l'entreprise avec kycVerificationId: ${verificationId}`);
-    const companiesSnapshot = await db
-      .collection("companies")
-      .where("kycVerificationId", "==", verificationId)
-      .get();
+    let companyId = null;
+    let uid = null;
 
-    if (companiesSnapshot.empty) {
-      console.log(`❌ [KYC] Aucune entreprise trouvée avec kycVerificationId: ${verificationId}`);
-      
-      // 🔥 DERNIER RECOURS: Chercher dans toutes les entreprises et vérifier dans les logs
-      console.log(`🔍 [KYC] Recherche dans toutes les entreprises...`);
-      const allCompanies = await db.collection("companies").limit(100).get();
-      console.log(`📊 [KYC] ${allCompanies.size} entreprises trouvées`);
-      
-      allCompanies.forEach(doc => {
-        const data = doc.data();
-        console.log(`📊 [KYC] Entreprise ${doc.id}: kycVerificationId=${data.kycVerificationId}, kycSessionId=${data.kycSessionId}`);
-      });
-      
-      return NextResponse.json({ ok: true });
-    }
-
-    // Entreprise trouvée
-    const doc = companiesSnapshot.docs[0];
-    const companyId = doc.id;
-    const companyData = doc.data();
-    const uid = companyData?.ownerUid;
+    // 🔥 MÉTHODE 1: Chercher dans kyc_mappings par verificationId
+    console.log(`🔍 [KYC] Recherche dans kyc_mappings par verificationId: ${verificationId}`);
+    const mappingSnap = await db.collection("kyc_mappings").doc(verificationId).get();
     
-    console.log(`✅ [KYC] Entreprise trouvée: ${companyId} (${companyData.name})`);
-    console.log(`✅ [KYC] Owner UID: ${uid}`);
+    if (mappingSnap.exists) {
+      const mapping = mappingSnap.data()!;
+      companyId = mapping.companyId;
+      uid = mapping.userId;
+      console.log(`✅ [KYC] Mapping trouvé dans kyc_mappings: ${companyId}`);
+    }
 
-    // Mettre à jour l'entreprise
+    // 🔥 MÉTHODE 2: Chercher dans companies par kycVerificationId
+    if (!companyId) {
+      console.log(`🔍 [KYC] Recherche dans companies par kycVerificationId: ${verificationId}`);
+      const companiesSnap = await db
+        .collection("companies")
+        .where("kycVerificationId", "==", verificationId)
+        .get();
+      
+      if (!companiesSnap.empty) {
+        const doc = companiesSnap.docs[0];
+        companyId = doc.id;
+        uid = doc.data()?.ownerUid;
+        console.log(`✅ [KYC] CompanyId trouvé dans companies: ${companyId}`);
+      }
+    }
+
+    // 🔥 MÉTHODE 3: Chercher le sessionId dans les mappings (fallback)
+    if (!companyId) {
+      console.log(`🔍 [KYC] Recherche du sessionId associé à cette verificationId`);
+      
+      // Chercher dans tous les mappings pour trouver le sessionId
+      const allMappings = await db
+        .collection("kyc_mappings")
+        .where("status", "==", "documents_submitted")
+        .orderBy("createdAt", "desc")
+        .limit(10)
+        .get();
+      
+      console.log(`📊 [KYC] ${allMappings.size} mappings documents_submitted trouvés`);
+      
+      for (const doc of allMappings.docs) {
+        const data = doc.data();
+        console.log(`📊 [KYC] Mapping: ${doc.id} -> companyId=${data.companyId}, sessionId=${data.sessionId}, verificationId=${data.verificationId}`);
+        
+        // Si le verificationId correspond OU si c'est le plus récent
+        if (data.verificationId === verificationId) {
+          companyId = data.companyId;
+          uid = data.userId;
+          console.log(`✅ [KYC] Trouvé par correspondance: ${companyId}`);
+          break;
+        }
+      }
+    }
+
+    // 🔥 MÉTHODE 4: Dernier recours - utiliser le sessionId du mapping récent
+    if (!companyId) {
+      console.log(`🔍 [KYC] Dernier recours: utiliser le mapping le plus récent`);
+      const latestMappings = await db
+        .collection("kyc_mappings")
+        .orderBy("createdAt", "desc")
+        .limit(1)
+        .get();
+      
+      if (!latestMappings.empty) {
+        const latest = latestMappings.docs[0].data();
+        companyId = latest.companyId;
+        uid = latest.userId;
+        console.log(`✅ [KYC] Utilisation du mapping le plus récent: ${companyId}`);
+      }
+    }
+
+    if (!companyId) {
+      console.log(`❌ [KYC] Impossible de trouver l'entreprise, abandon`);
+      return NextResponse.json({ ok: true });
+    }
+
+    // Récupérer l'UID si pas trouvé
+    if (!uid) {
+      const companySnap = await db.collection("companies").doc(companyId).get();
+      if (companySnap.exists) {
+        uid = companySnap.data()?.ownerUid;
+        console.log(`📊 [KYC] UID récupéré depuis l'entreprise: ${uid}`);
+      }
+    }
+
+    // 🔥 Mettre à jour l'entreprise avec verificationId si pas encore fait
     console.log(`🏢 [KYC] Mise à jour de l'entreprise ${companyId} vers "review"`);
-    await db.collection("companies").doc(companyId).update({
+    const updateData: any = {
       kycStatus: "review",
       kycRiskLevel: riskLevel,
       kycReviewedAt: Date.now(),
-    });
+    };
+    
+    // Si verificationId n'est pas stocké, on le met à jour
+    const companySnap = await db.collection("companies").doc(companyId).get();
+    if (companySnap.exists && !companySnap.data()?.kycVerificationId) {
+      updateData.kycVerificationId = verificationId;
+    }
+    
+    await db.collection("companies").doc(companyId).update(updateData);
     console.log("✅ [KYC] Entreprise mise à jour: review");
+
+    // 🔥 Mettre à jour le mapping avec verificationId
+    const sessionId = event.data?.sessionId;
+    if (sessionId) {
+      const mappingDoc = await db.collection("kyc_mappings").doc(sessionId).get();
+      if (mappingDoc.exists) {
+        await db.collection("kyc_mappings").doc(sessionId).update({
+          verificationId,
+          status: "manual_review"
+        });
+        console.log(`✅ [KYC] Mapping mis à jour avec verificationId: ${verificationId}`);
+      }
+    }
 
     // Envoyer les notifications
     if (uid) {
-      console.log(`📧 [KYC] Envoi des notifications pour l'utilisateur ${uid}`);
-      
-      const title = "KYC en révision manuelle ⏳";
-      const body = "Votre dossier KYC est en cours de révision manuelle. Vous serez notifié sous 24h.";
-
-      try {
-        await sendPushAndStore({
-          uid,
-          companyId,
-          title,
-          body,
-          type: "kyc",
-          link: `/kyc-pending?companyId=${companyId}`,
-        });
-        console.log("✅ [KYC] Push notification envoyée");
-      } catch (error) {
-        console.error("❌ [KYC] Erreur push:", error);
-      }
-
-      try {
-        const userSnap = await db.collection("users").doc(uid).get();
-        const userData = userSnap.data();
-        const userEmail = userData?.email;
-        if (userEmail) {
-          await sendTransactionalEmail({
-            to: [{ email: userEmail, name: userData?.displayName || "Utilisateur" }],
-            subject: title,
-            htmlContent: emailTemplate({
-              title,
-              body,
-              ctaLabel: "Accéder au tableau de bord",
-              ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
-            }),
-          });
-          console.log(`✅ [KYC] Email envoyé à ${userEmail}`);
-        }
-      } catch (error) {
-        console.error("❌ [KYC] Erreur email:", error);
-      }
+      await sendNotifications(db, uid, companyId, "review");
     }
-    
-    console.log("✅ [KYC] Traitement de verification.manual_review terminé");
+
     return NextResponse.json({ ok: true });
   }
 
-  // 🔥 VERIFICATION COMPLETED
+  // ============================================================
+  // 4. VERIFICATION COMPLETED
+  // ============================================================
   if (event.event === "verification.completed") {
-    console.log(`✅ [KYC] Vérification terminée !`);
-    const verificationId: string = event.data?.id;
-    const riskLevel: string = event.data?.riskLevel ?? "medium";
-    const fraudDetected: boolean = event.data?.fraudDetected ?? false;
+    console.log("✅ [KYC] Vérification terminée !");
+    const verificationId = event.data?.id;
+    const riskLevel = event.data?.riskLevel ?? "medium";
+    const fraudDetected = event.data?.fraudDetected ?? false;
 
     if (!verificationId) {
-      console.log("❌ [KYC] Pas d'ID de vérification");
+      console.log("❌ [KYC] Pas de verificationId");
       return NextResponse.json({ ok: true });
     }
 
-    // Rechercher par verificationId
-    console.log(`🔍 [KYC] Recherche de l'entreprise par kycVerificationId: ${verificationId}`);
-    const companiesSnapshot = await db
-      .collection("companies")
-      .where("kycVerificationId", "==", verificationId)
-      .get();
+    let companyId = null;
+    let uid = null;
 
-    if (companiesSnapshot.empty) {
-      console.log(`❌ [KYC] Aucune entreprise trouvée`);
-      return NextResponse.json({ ok: true });
+    // Chercher dans kyc_mappings
+    const mappingSnap = await db.collection("kyc_mappings").doc(verificationId).get();
+    if (mappingSnap.exists) {
+      const mapping = mappingSnap.data()!;
+      companyId = mapping.companyId;
+      uid = mapping.userId;
+      console.log(`✅ [KYC] Mapping trouvé: ${companyId}`);
     }
 
-    const doc = companiesSnapshot.docs[0];
-    const companyId = doc.id;
-    const companyData = doc.data();
-    const uid = companyData?.ownerUid;
+    if (!companyId) {
+      // Chercher dans companies
+      const companiesSnap = await db
+        .collection("companies")
+        .where("kycVerificationId", "==", verificationId)
+        .get();
+      
+      if (!companiesSnap.empty) {
+        companyId = companiesSnap.docs[0].id;
+        uid = companiesSnap.docs[0].data()?.ownerUid;
+      }
+    }
+
+    if (!companyId) {
+      console.log(`❌ [KYC] Impossible de trouver l'entreprise`);
+      return NextResponse.json({ ok: true });
+    }
 
     const newStatus = fraudDetected || riskLevel === "high"
       ? "review"
-      : riskLevel === "low" || riskLevel === "medium"
-      ? "approved"
-      : "review";
-
-    console.log(`📊 [KYC] Nouveau statut: ${newStatus}`);
+      : "approved";
 
     await db.collection("companies").doc(companyId).update({
       kycStatus: newStatus,
@@ -248,38 +348,61 @@ export async function POST(req: NextRequest) {
       kycReviewedAt: Date.now(),
     });
 
+    console.log(`✅ [KYC] Entreprise ${companyId} mise à jour: ${newStatus}`);
+
     if (uid) {
-      const title = newStatus === "approved" ? "KYC approuvé 🎉" : "KYC en révision";
-      const body = newStatus === "approved"
-        ? "Votre entreprise est maintenant vérifiée. Les paiements sont activés."
-        : "Votre dossier KYC est en cours de révision manuelle. Vous serez notifié sous 24h.";
-
-      await sendPushAndStore({
-        uid,
-        companyId,
-        title,
-        body,
-        type: "kyc",
-        link: `/kyc-pending?companyId=${companyId}`,
-      });
-
-      const userSnap = await db.collection("users").doc(uid).get();
-      const userEmail = userSnap.data()?.email;
-      if (userEmail) {
-        await sendTransactionalEmail({
-          to: [{ email: userEmail, name: userSnap.data()?.displayName }],
-          subject: title,
-          htmlContent: emailTemplate({
-            title,
-            body,
-            ctaLabel: "Accéder au tableau de bord",
-            ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
-          }),
-        });
-      }
+      await sendNotifications(db, uid, companyId, newStatus);
     }
   }
 
-  console.log("🏁 [KYC] Fin du traitement du webhook");
+  console.log("🏁 [KYC] Fin du traitement");
   return NextResponse.json({ ok: true });
+}
+
+// ============================================================
+// FONCTIONS HELPERS
+// ============================================================
+
+async function sendNotifications(db: any, uid: string, companyId: string, status: string) {
+  console.log(`📧 [KYC] Envoi des notifications pour l'utilisateur ${uid}`);
+  
+  const title = status === "approved" ? "KYC approuvé 🎉" : "KYC en révision manuelle ⏳";
+  const body = status === "approved"
+    ? "Votre entreprise est maintenant vérifiée. Les paiements sont activés."
+    : "Votre dossier KYC est en cours de révision manuelle. Vous serez notifié sous 24h.";
+
+  try {
+    await sendPushAndStore({
+      uid,
+      companyId,
+      title,
+      body,
+      type: "kyc",
+      link: `/kyc-pending?companyId=${companyId}`,
+    });
+    console.log("✅ [KYC] Push notification envoyée");
+  } catch (error) {
+    console.error("❌ [KYC] Erreur push:", error);
+  }
+
+  try {
+    const userSnap = await db.collection("users").doc(uid).get();
+    const userData = userSnap.data();
+    const userEmail = userData?.email;
+    if (userEmail) {
+      await sendTransactionalEmail({
+        to: [{ email: userEmail, name: userData?.displayName || "Utilisateur" }],
+        subject: title,
+        htmlContent: emailTemplate({
+          title,
+          body,
+          ctaLabel: "Accéder au tableau de bord",
+          ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+        }),
+      });
+      console.log(`✅ [KYC] Email envoyé à ${userEmail}`);
+    }
+  } catch (error) {
+    console.error("❌ [KYC] Erreur email:", error);
+  }
 }
