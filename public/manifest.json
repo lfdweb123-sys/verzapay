@@ -2,7 +2,7 @@
   "name": "Verzapay",
   "short_name": "Verzapay",
   "description": "La passerelle de paiement pensée pour l'Afrique",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0C447C",

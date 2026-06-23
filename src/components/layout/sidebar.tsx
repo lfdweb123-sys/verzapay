@@ -88,7 +88,10 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
 
       <aside
         className={cn(
-          "fixed left-0 top-0 bottom-0 z-50 flex flex-col bg-white border-r border-ink-200 transition-all duration-300",
+          // h-dvh (dynamic viewport height) au lieu de top-0/bottom-0 : fiable sur mobile
+          // même quand la barre d'adresse du navigateur apparaît/disparaît.
+          "fixed left-0 top-0 z-50 flex flex-col bg-white border-r border-ink-200 transition-all duration-300",
+          "h-dvh h-screen", // h-screen = fallback si h-dvh non supporté
           // Desktop : largeur selon collapsed, toujours visible
           collapsed ? "lg:w-[76px]" : "lg:w-[260px]",
           // Mobile : drawer plein, translate selon mobileOpen
@@ -193,7 +196,9 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto scrollbar-none px-2 py-3 space-y-0.5">
+        {/* min-h-0 est CRITIQUE ici : sans lui, un enfant flex avec overflow-y-auto
+            peut refuser de scroller et pousser le footer hors de l'écran sur mobile. */}
+        <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-2 py-3 space-y-0.5">
           {navList.map((item, idx) => {
             const prev = navList[idx - 1];
             const showSection = item.section && item.section !== prev?.section;
@@ -229,44 +234,51 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
           })}
         </nav>
 
-        {/* Lien documentation, juste avant le profil */}
-        <div className="shrink-0 border-t border-ink-200 px-2 py-2">
-          <Link
-            href="/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            title={collapsed ? "Documentation" : undefined}
-            className={cn(
-              "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900 transition-colors",
-              collapsed && "lg:justify-center lg:px-2"
-            )}
-          >
-            <BookOpen size={18} />
-            <span className={cn(collapsed && "lg:hidden")}>Documentation</span>
-          </Link>
-        </div>
-
-        {/* User footer + déconnexion bien visible */}
-        <div className="shrink-0 border-t border-ink-200 px-3 py-3 space-y-2">
-          <div className={cn("flex items-center gap-2.5", collapsed && "lg:justify-center")}>
-            <UserAvatar photoURL={appUser?.photoURL} name={appUser?.displayName ?? user?.email ?? "U"} size={32} />
-            <div className={cn("flex-1 min-w-0", collapsed && "lg:hidden")}>
-              <p className="text-sm font-medium text-ink-900 truncate">{appUser?.displayName ?? "—"}</p>
-              <p className="text-[11px] text-ink-500 truncate">{user?.email}</p>
-            </div>
+        {/* Bloc bas regroupé : Documentation + User + Déconnexion.
+            shrink-0 garantit que ce bloc n'est JAMAIS compressé ni poussé hors écran,
+            quelle que soit la longueur de la nav au-dessus (qui scrolle dans son propre conteneur). */}
+        <div className="shrink-0">
+          {/* Lien documentation, juste avant le profil */}
+          <div className="border-t border-ink-200 px-2 py-2">
+            <Link
+              href="/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={collapsed ? "Documentation" : undefined}
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-600 hover:bg-ink-50 hover:text-ink-900 transition-colors",
+                collapsed && "lg:justify-center lg:px-2"
+              )}
+            >
+              <BookOpen size={18} />
+              <span className={cn(collapsed && "lg:hidden")}>Documentation</span>
+            </Link>
           </div>
 
-          <button
-            onClick={handleLogout}
-            title={collapsed ? "Déconnexion" : undefined}
-            className={cn(
-              "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-danger-700 bg-danger-50 hover:bg-danger-100 transition-colors",
-              collapsed && "lg:justify-center lg:px-2"
-            )}
-          >
-            <LogOut size={16} />
-            <span className={cn(collapsed && "lg:hidden")}>Déconnexion</span>
-          </button>
+          {/* User footer + déconnexion bien visible */}
+          {/* pb-[max(0.75rem,env(safe-area-inset-bottom))] : remonte le contenu au-dessus
+              de la barre de gestes / encoche sur mobile (iOS notamment). */}
+          <div className="border-t border-ink-200 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
+            <div className={cn("flex items-center gap-2.5", collapsed && "lg:justify-center")}>
+              <UserAvatar photoURL={appUser?.photoURL} name={appUser?.displayName ?? user?.email ?? "U"} size={32} />
+              <div className={cn("flex-1 min-w-0", collapsed && "lg:hidden")}>
+                <p className="text-sm font-medium text-ink-900 truncate">{appUser?.displayName ?? "—"}</p>
+                <p className="text-[11px] text-ink-500 truncate">{user?.email}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              title={collapsed ? "Déconnexion" : undefined}
+              className={cn(
+                "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-danger-700 bg-danger-50 hover:bg-danger-100 transition-colors",
+                collapsed && "lg:justify-center lg:px-2"
+              )}
+            >
+              <LogOut size={16} />
+              <span className={cn(collapsed && "lg:hidden")}>Déconnexion</span>
+            </button>
+          </div>
         </div>
 
         {/* Collapse button (desktop uniquement) */}
