@@ -84,7 +84,7 @@ export function MarketingFooter() {
           <p className="text-xs text-ink-400">
             © {new Date().getFullYear()} Verzapay. Tous droits réservés.
           </p>
-          <p className="text-xs text-ink-400">
+          <p className="text-xs text-ink-400 text-center">
             Paiements sécurisés · Vérification d&apos;identité via VerifyPro Africa
           </p>
         </div>
