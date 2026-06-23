@@ -95,13 +95,14 @@ export default function AdminMerchantsPage() {
     );
   }, [merchants, search]);
 
-  // Fonction de formatage de date sécurisée
+  // Fonction de formatage de date sécurisée - CORRIGÉE
   const formatDateSafe = (timestamp: number | null | undefined): string => {
     if (!timestamp) return "Date inconnue";
     try {
       const date = new Date(timestamp);
       if (isNaN(date.getTime())) return "Date invalide";
-      return formatDate(date);
+      // Convertir la date en timestamp pour formatDate
+      return formatDate(date.getTime());
     } catch {
       return "Date invalide";
     }
@@ -187,7 +188,6 @@ export default function AdminMerchantsPage() {
                       )}
                     </div>
                     <p className="text-xs text-ink-500 truncate">{m.email}</p>
-                    {/* Utilisation de formatDateSafe pour éviter l'erreur */}
                     <p className="text-[11px] text-ink-400 mt-0.5">
                       Inscrit le {formatDateSafe(m.createdAt)}
                     </p>

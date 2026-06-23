@@ -39,7 +39,7 @@ export default function AdminTeamPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/team?uid=${user.uid}`);
+      const res = await fetch(`/api/admin/teams?uid=${user.uid}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur");
       setMembers(data.members ?? []);
@@ -55,7 +55,7 @@ export default function AdminTeamPage() {
     if (!user || !inviteEmail.trim()) return;
     setInviting(true);
     try {
-      const res = await fetch("/api/admin/team", {
+      const res = await fetch("/api/admin/teams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ adminUid: user.uid, email: inviteEmail.trim(), action: "grant" }),
@@ -77,7 +77,7 @@ export default function AdminTeamPage() {
     if (!user) return;
     setRevoking(targetUid);
     try {
-      const res = await fetch("/api/admin/team", {
+      const res = await fetch("/api/admin/teams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ adminUid: user.uid, targetUid, action: "revoke" }),
@@ -94,7 +94,7 @@ export default function AdminTeamPage() {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-5 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-medium text-ink-900">Équipe Verzapay</h1>
