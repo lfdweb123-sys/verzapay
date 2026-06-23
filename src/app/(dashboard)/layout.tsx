@@ -22,6 +22,11 @@ export default function DashboardGroupLayout({ children }: { children: React.Rea
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Garantit que le dark mode docs ne déborde jamais sur le dashboard
+  useEffect(() => {
+    document.documentElement.classList.remove("dark");
+  }, []);
+
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace("/login"); return; }
