@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
           body: `
             L'administration Verzapay a validé votre demande de changement d'adresse email.<br/><br/>
             Votre code de confirmation est :<br/>
-            <div style="font-size:32px;font-weight:700;letter-spacing:8px;text-align:center;margin:24px 0;color:#1a1a2e;">${code}</div>
+            <div class="code-box">${code}</div>
             Ce code est valable <strong>15 minutes</strong>.<br/><br/>
             Reconnectez-vous sur Verzapay avec votre <strong>ancienne adresse email</strong> et saisissez ce code pour finaliser le changement.
           `,
