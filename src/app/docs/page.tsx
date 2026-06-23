@@ -120,7 +120,7 @@ export default function DocsPage() {
                 const Icon = s.icon;
                 const isActive = active === s.id;
                 return (
-                  
+                  <a
                     key={s.id}
                     href={`#${s.id}`}
                     onClick={() => setActive(s.id)}
