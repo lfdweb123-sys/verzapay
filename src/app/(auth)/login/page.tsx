@@ -57,7 +57,7 @@ function LoginPageInner() {
     if (user && !isEmailChange) router.replace("/verify-2fa");
   }, [user, router, isEmailChange]);
 
-  async function handleConfirmCode(e: React.FormEvent) {
+async function handleConfirmCode(e: React.FormEvent) {
     e.preventDefault();
     if (!emailChangeUid) {
       show("Session expirée. Reconnectez-vous.", "error");
@@ -77,7 +77,15 @@ function LoginPageInner() {
       }
       setConfirmed(true);
       show("Adresse email mise à jour ! Reconnectez-vous.", "success");
-      setTimeout(() => router.replace("/login"), 2500);
+      // On force une vraie navigation (hard reload) plutôt que router.replace :
+      // router.replace("/login") restait bloqué sur "/login?emailChange=1" car
+      // Next.js ne réinitialise pas toujours le state du composant quand seul
+      // le query string change sur la même route. window.location.href garantit
+      // un rechargement complet vers /login sans le paramètre emailChange=1,
+      // donc plus de boucle de confirmation affichée.
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 2500);
     } catch (err) {
       show((err as Error).message, "error");
     } finally {

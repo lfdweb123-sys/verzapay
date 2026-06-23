@@ -37,6 +37,26 @@ export async function POST(req: NextRequest) {
     const auth = await adminAuth();
     await auth.updateUser(uid, { email: newEmail });
 
+    // IMPORTANT : on révoque tous les refresh tokens émis avant ce changement.
+    // Sans ça, une session Firebase Auth déjà active côté client (token en
+    // IndexedDB) reste valide après le changement d'email : au reload sur
+    // /login, le SDK rafraîchit silencieusement le token, onAuthStateChanged
+    // renvoie un user toujours "connecté", et l'utilisateur est redirigé
+    // directement vers /verify-2fa puis le dashboard au lieu de repasser
+    // par l'écran de connexion avec sa nouvelle adresse email.
+    // On isole cet appel dans son propre try/catch : si revokeRefreshTokens
+    // plante (mise à jour de dépendance jose/jwks-rsa, etc.), l'email a déjà
+    // été mis à jour et le doc Firestore aussi — on ne veut pas masquer ce
+    // succès par un 500 trompeur.
+    try {
+      await auth.revokeRefreshTokens(uid);
+    } catch (revokeErr) {
+      console.error(
+        "revokeRefreshTokens a échoué après updateUser (email déjà mis à jour) :",
+        revokeErr
+      );
+    }
+
     await userRef.update({
       email: newEmail,
       pendingEmail: null,
