@@ -34,10 +34,72 @@ export async function POST(req: NextRequest) {
 
   const event = JSON.parse(rawBody);
   console.log(`📊 [KYC] Événement reçu: ${event.event}`);
+  console.log(`📊 [KYC] Données complètes:`, JSON.stringify(event.data, null, 2));
   
   const db = adminDb();
 
-  // 🔥 Gestion de verification.manual_review
+  // 🔥 SESSION CREATED - On stocke le sessionId
+  if (event.event === "session.created" || event.event === "session.viewed") {
+    console.log(`👁️ [KYC] Session ${event.event} reçue`);
+    const sessionId = event.data?.id;
+    const metadata: { companyId?: string } = event.data?.metadata ?? {};
+    
+    console.log(`📊 [KYC] Session ID: ${sessionId}`);
+    console.log(`📊 [KYC] Métadonnées:`, metadata);
+    
+    if (metadata.companyId) {
+      const companySnap = await db.collection("companies").doc(metadata.companyId).get();
+      if (companySnap.exists) {
+        await db.collection("companies").doc(metadata.companyId).update({ 
+          kycSessionId: sessionId
+        });
+        console.log(`✅ [KYC] SessionId ${sessionId} stocké pour l'entreprise ${metadata.companyId}`);
+      }
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // 🔥 DOCUMENT SUBMITTED - On stocke le verificationId
+  if (event.event === "document.submitted" || event.event === "verification.started") {
+    console.log(`📄 [KYC] ${event.event} reçu - Documents soumis`);
+    const verificationId = event.data?.id;
+    const sessionId = event.data?.sessionId;
+    const metadata: { companyId?: string } = event.data?.metadata ?? {};
+    
+    console.log(`📊 [KYC] Verification ID: ${verificationId}`);
+    console.log(`📊 [KYC] Session ID: ${sessionId}`);
+    console.log(`📊 [KYC] Métadonnées:`, metadata);
+    
+    let companyId = metadata.companyId;
+
+    // Si pas de companyId, chercher par sessionId
+    if (!companyId && sessionId) {
+      console.log(`🔍 [KYC] Recherche par sessionId: ${sessionId}`);
+      const companiesSnapshot = await db
+        .collection("companies")
+        .where("kycSessionId", "==", sessionId)
+        .get();
+      
+      if (!companiesSnapshot.empty) {
+        companyId = companiesSnapshot.docs[0].id;
+        console.log(`✅ [KYC] Entreprise trouvée par sessionId: ${companyId}`);
+      }
+    }
+
+    if (companyId) {
+      await db.collection("companies").doc(companyId).update({ 
+        kycStatus: "pending",
+        kycVerificationId: verificationId // 🔥 STOCKAGE DU verificationId
+      });
+      console.log(`✅ [KYC] Statut mis à jour: pending pour ${companyId}`);
+      console.log(`✅ [KYC] VerificationId stocké: ${verificationId}`);
+    } else {
+      console.log(`❌ [KYC] Impossible de trouver l'entreprise pour le document.submitted`);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // 🔥 MANUAL REVIEW - On utilise le verificationId stocké
   if (event.event === "verification.manual_review") {
     console.log("🔄 [KYC] Vérification en révision manuelle !");
     
@@ -45,84 +107,56 @@ export async function POST(req: NextRequest) {
     const verificationId = data?.id;
     const riskLevel = data?.riskLevel ?? "medium";
     const fraudDetected = data?.fraudDetected ?? false;
-    const sessionId = data?.sessionId; // 🔥 C'EST LA CLÉ !
     
     console.log(`📊 [KYC] ID de vérification: ${verificationId}`);
-    console.log(`📊 [KYC] Session ID: ${sessionId}`);
     console.log(`📊 [KYC] Niveau de risque: ${riskLevel}`);
     console.log(`📊 [KYC] Fraude détectée: ${fraudDetected}`);
 
-    let companyId: string | null = null;
-    let uid: string | null = null;
-
-    // 🔥 MÉTHODE 1: Chercher par sessionId (stocké dans l'entreprise)
-    if (sessionId) {
-      console.log(`🔍 [KYC] Recherche de l'entreprise par kycSessionId: ${sessionId}`);
-      const companiesSnapshot = await db
-        .collection("companies")
-        .where("kycSessionId", "==", sessionId)
-        .get();
-
-      if (!companiesSnapshot.empty) {
-        const doc = companiesSnapshot.docs[0];
-        companyId = doc.id;
-        const companyData = doc.data();
-        uid = companyData?.ownerUid;
-        console.log(`✅ [KYC] Entreprise trouvée par sessionId: ${companyId}`);
-        console.log(`✅ [KYC] Owner UID: ${uid}`);
-      } else {
-        console.log(`❌ [KYC] Aucune entreprise trouvée avec kycSessionId: ${sessionId}`);
-      }
-    }
-
-    // 🔥 MÉTHODE 2: Chercher par verificationId (si disponible)
-    if (!companyId && verificationId) {
-      console.log(`🔍 [KYC] Recherche alternative par kycVerificationId: ${verificationId}`);
-      const companiesSnapshot = await db
-        .collection("companies")
-        .where("kycVerificationId", "==", verificationId)
-        .get();
-
-      if (!companiesSnapshot.empty) {
-        const doc = companiesSnapshot.docs[0];
-        companyId = doc.id;
-        const companyData = doc.data();
-        uid = companyData?.ownerUid;
-        console.log(`✅ [KYC] Entreprise trouvée par verificationId: ${companyId}`);
-      }
-    }
-
-    // 🔥 MÉTHODE 3: Chercher par metadata (si présent dans le webhook)
-    if (!companyId) {
-      const metadata = data?.metadata || data?.userMetadata || {};
-      if (metadata.companyId) {
-        companyId = metadata.companyId;
-        uid = metadata.uid;
-        console.log(`✅ [KYC] Entreprise trouvée via metadata: ${companyId}`);
-      }
-    }
-
-    if (!companyId) {
-      console.log("❌ [KYC] Impossible de trouver l'entreprise, abandon");
+    if (!verificationId) {
+      console.log("❌ [KYC] Pas d'ID de vérification");
       return NextResponse.json({ ok: true });
     }
+
+    // 🔥 RECHERCHE PAR verificationId (qui a été stocké lors de document.submitted)
+    console.log(`🔍 [KYC] Recherche de l'entreprise avec kycVerificationId: ${verificationId}`);
+    const companiesSnapshot = await db
+      .collection("companies")
+      .where("kycVerificationId", "==", verificationId)
+      .get();
+
+    if (companiesSnapshot.empty) {
+      console.log(`❌ [KYC] Aucune entreprise trouvée avec kycVerificationId: ${verificationId}`);
+      
+      // 🔥 DERNIER RECOURS: Chercher dans toutes les entreprises et vérifier dans les logs
+      console.log(`🔍 [KYC] Recherche dans toutes les entreprises...`);
+      const allCompanies = await db.collection("companies").limit(100).get();
+      console.log(`📊 [KYC] ${allCompanies.size} entreprises trouvées`);
+      
+      allCompanies.forEach(doc => {
+        const data = doc.data();
+        console.log(`📊 [KYC] Entreprise ${doc.id}: kycVerificationId=${data.kycVerificationId}, kycSessionId=${data.kycSessionId}`);
+      });
+      
+      return NextResponse.json({ ok: true });
+    }
+
+    // Entreprise trouvée
+    const doc = companiesSnapshot.docs[0];
+    const companyId = doc.id;
+    const companyData = doc.data();
+    const uid = companyData?.ownerUid;
+    
+    console.log(`✅ [KYC] Entreprise trouvée: ${companyId} (${companyData.name})`);
+    console.log(`✅ [KYC] Owner UID: ${uid}`);
 
     // Mettre à jour l'entreprise
     console.log(`🏢 [KYC] Mise à jour de l'entreprise ${companyId} vers "review"`);
     await db.collection("companies").doc(companyId).update({
       kycStatus: "review",
-      kycVerificationId: verificationId,
       kycRiskLevel: riskLevel,
       kycReviewedAt: Date.now(),
     });
     console.log("✅ [KYC] Entreprise mise à jour: review");
-
-    // 🔥 Récupérer l'UID du propriétaire si pas déjà trouvé
-    if (!uid) {
-      const companySnap = await db.collection("companies").doc(companyId).get();
-      uid = companySnap.data()?.ownerUid;
-      console.log(`📊 [KYC] UID récupéré depuis l'entreprise: ${uid}`);
-    }
 
     // Envoyer les notifications
     if (uid) {
@@ -165,124 +199,51 @@ export async function POST(req: NextRequest) {
       } catch (error) {
         console.error("❌ [KYC] Erreur email:", error);
       }
-    } else {
-      console.log("⚠️ [KYC] Pas d'UID trouvé pour l'entreprise");
     }
     
     console.log("✅ [KYC] Traitement de verification.manual_review terminé");
     return NextResponse.json({ ok: true });
   }
 
-  // L'utilisateur a ouvert/vu la page de vérification
-  if (event.event === "session.created" || event.event === "session.viewed") {
-    console.log(`👁️ [KYC] Session ${event.event} reçue`);
-    const sessionId = event.data?.id;
-    const metadata: { companyId?: string } = event.data?.metadata ?? {};
-    
-    if (metadata.companyId) {
-      const companySnap = await db.collection("companies").doc(metadata.companyId).get();
-      if (companySnap.exists && companySnap.data()?.kycStatus === "awaiting_submission") {
-        await db.collection("companies").doc(metadata.companyId).update({ 
-          kycStatus: "awaiting_submission",
-          kycSessionId: sessionId
-        });
-        console.log(`✅ [KYC] SessionId ${sessionId} stocké pour l'entreprise ${metadata.companyId}`);
-      }
-    }
-    return NextResponse.json({ ok: true });
-  }
-
-  // Documents soumis
-  if (event.event === "verification.started" || event.event === "document.submitted") {
-    console.log(`📄 [KYC] ${event.event} reçu - Documents soumis`);
-    const verificationId = event.data?.id;
-    const sessionId = event.data?.sessionId;
-    const metadata: { companyId?: string } = event.data?.metadata ?? {};
-    
-    let companyId = metadata.companyId;
-
-    // Si pas de companyId dans metadata, chercher par sessionId
-    if (!companyId && sessionId) {
-      console.log(`🔍 [KYC] Recherche par sessionId: ${sessionId}`);
-      const companiesSnapshot = await db
-        .collection("companies")
-        .where("kycSessionId", "==", sessionId)
-        .get();
-      
-      if (!companiesSnapshot.empty) {
-        companyId = companiesSnapshot.docs[0].id;
-        console.log(`✅ [KYC] Entreprise trouvée: ${companyId}`);
-      }
-    }
-
-    if (companyId) {
-      await db.collection("companies").doc(companyId).update({ 
-        kycStatus: "pending",
-        kycVerificationId: verificationId
-      });
-      console.log(`✅ [KYC] Statut mis à jour: pending pour ${companyId}`);
-    }
-    return NextResponse.json({ ok: true });
-  }
-
-  // Vérification complétée
+  // 🔥 VERIFICATION COMPLETED
   if (event.event === "verification.completed") {
     console.log(`✅ [KYC] Vérification terminée !`);
     const verificationId: string = event.data?.id;
-    const sessionId: string = event.data?.sessionId;
     const riskLevel: string = event.data?.riskLevel ?? "medium";
     const fraudDetected: boolean = event.data?.fraudDetected ?? false;
-    const metadata: { companyId?: string; uid?: string } = event.data?.metadata ?? {};
 
-    let companyId = metadata.companyId;
-    let uid = metadata.uid;
-
-    // Chercher par sessionId
-    if (!companyId && sessionId) {
-      console.log(`🔍 [KYC] Recherche par sessionId: ${sessionId}`);
-      const companiesSnapshot = await db
-        .collection("companies")
-        .where("kycSessionId", "==", sessionId)
-        .get();
-      
-      if (!companiesSnapshot.empty) {
-        const doc = companiesSnapshot.docs[0];
-        companyId = doc.id;
-        uid = doc.data()?.ownerUid;
-        console.log(`✅ [KYC] Entreprise trouvée: ${companyId}`);
-      }
-    }
-
-    // Chercher par verificationId
-    if (!companyId && verificationId) {
-      console.log(`🔍 [KYC] Recherche par verificationId: ${verificationId}`);
-      const companiesSnapshot = await db
-        .collection("companies")
-        .where("kycVerificationId", "==", verificationId)
-        .get();
-      
-      if (!companiesSnapshot.empty) {
-        const doc = companiesSnapshot.docs[0];
-        companyId = doc.id;
-        uid = doc.data()?.ownerUid;
-        console.log(`✅ [KYC] Entreprise trouvée: ${companyId}`);
-      }
-    }
-
-    if (!companyId) {
-      console.log("⚠️ [KYC] Pas de companyId, impossible de continuer");
+    if (!verificationId) {
+      console.log("❌ [KYC] Pas d'ID de vérification");
       return NextResponse.json({ ok: true });
     }
 
+    // Rechercher par verificationId
+    console.log(`🔍 [KYC] Recherche de l'entreprise par kycVerificationId: ${verificationId}`);
+    const companiesSnapshot = await db
+      .collection("companies")
+      .where("kycVerificationId", "==", verificationId)
+      .get();
+
+    if (companiesSnapshot.empty) {
+      console.log(`❌ [KYC] Aucune entreprise trouvée`);
+      return NextResponse.json({ ok: true });
+    }
+
+    const doc = companiesSnapshot.docs[0];
+    const companyId = doc.id;
+    const companyData = doc.data();
+    const uid = companyData?.ownerUid;
+
     const newStatus = fraudDetected || riskLevel === "high"
       ? "review"
-      : riskLevel === "low"
+      : riskLevel === "low" || riskLevel === "medium"
       ? "approved"
       : "review";
 
+    console.log(`📊 [KYC] Nouveau statut: ${newStatus}`);
+
     await db.collection("companies").doc(companyId).update({
       kycStatus: newStatus,
-      kycVerificationId: verificationId,
       kycRiskLevel: riskLevel,
       kycReviewedAt: Date.now(),
     });
