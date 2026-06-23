@@ -88,10 +88,11 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
 
       <aside
         className={cn(
-          // h-dvh (dynamic viewport height) au lieu de top-0/bottom-0 : fiable sur mobile
-          // même quand la barre d'adresse du navigateur apparaît/disparaît.
+          // h-dvh (dynamic viewport height) : fiable sur mobile, contrairement à h-screen
+          // (100vh) qui ignore le rétrécissement de la barre d'adresse et rend le
+          // conteneur plus grand que l'écran visible, poussant "Déconnexion" hors champ.
           "fixed left-0 top-0 z-50 flex flex-col bg-white border-r border-ink-200 transition-all duration-300",
-          "h-dvh h-screen", // h-screen = fallback si h-dvh non supporté
+          "h-dvh",
           // Desktop : largeur selon collapsed, toujours visible
           collapsed ? "lg:w-[76px]" : "lg:w-[260px]",
           // Mobile : drawer plein, translate selon mobileOpen
@@ -235,9 +236,10 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
         </nav>
 
         {/* Bloc bas regroupé : Documentation + User + Déconnexion.
-            shrink-0 garantit que ce bloc n'est JAMAIS compressé ni poussé hors écran,
-            quelle que soit la longueur de la nav au-dessus (qui scrolle dans son propre conteneur). */}
-        <div className="shrink-0">
+            shrink-0 + sticky bottom-0 : double garantie. shrink-0 empêche la compression
+            par le flex parent ; sticky bottom-0 ancre le bloc en bas de la zone visible
+            même si un calcul de hauteur en amont (h-dvh) est mal supporté par le navigateur. */}
+        <div className="shrink-0 sticky bottom-0 bg-white">
           {/* Lien documentation, juste avant le profil */}
           <div className="border-t border-ink-200 px-2 py-2">
             <Link
