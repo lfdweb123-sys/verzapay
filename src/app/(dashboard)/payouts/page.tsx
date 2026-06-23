@@ -98,9 +98,11 @@ export default function PayoutsPage() {
             onClick={() => canOpenPayout && setShowModal(true)}
             disabled={!hasBalance}
             title={!hasBalance ? "Solde insuffisant pour effectuer un retrait" : undefined}
-            className="btn-primary h-9 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-primary h-9 text-sm whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Plus size={15} /> Envoyer un paiement
+            <Plus size={15} />
+            <span className="sm:hidden">Envoyer</span>
+            <span className="hidden sm:inline">Envoyer un paiement</span>
           </button>
         )}
       </div>
@@ -117,7 +119,7 @@ export default function PayoutsPage() {
             onClick={() => canOpenPayout && setShowModal(true)}
             disabled={!hasBalance}
             title={!hasBalance ? "Solde insuffisant pour effectuer un retrait" : undefined}
-            className="btn-primary text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-primary text-sm whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Retirer des fonds
           </button>

@@ -91,13 +91,19 @@ export default function DashboardPage() {
             {activeCompany?.name ?? "Aucune entreprise"} — Vue d'ensemble financière
           </p>
         </div>
+        {/* Boutons d'action : libellé court sur mobile (Créer / Envoyer),
+            libellé complet à partir de sm: (Créer un lien / Envoyer un paiement) */}
         <div className="flex items-center gap-2">
-          <Link href="/payments/new" className="btn-secondary h-9 text-sm">
-            <Plus size={15} /> Créer un lien
+          <Link href="/payments/new" className="btn-secondary h-9 text-sm whitespace-nowrap">
+            <Plus size={15} />
+            <span className="sm:hidden">Créer</span>
+            <span className="hidden sm:inline">Créer un lien</span>
           </Link>
           {kycOk && (
-            <Link href="/payouts/new" className="btn-primary h-9 text-sm">
-              <Send size={14} /> Envoyer un paiement
+            <Link href="/payouts/new" className="btn-primary h-9 text-sm whitespace-nowrap">
+              <Send size={14} />
+              <span className="sm:hidden">Envoyer</span>
+              <span className="hidden sm:inline">Envoyer un paiement</span>
             </Link>
           )}
         </div>
