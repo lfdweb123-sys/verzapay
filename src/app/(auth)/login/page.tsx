@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
@@ -10,6 +10,25 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <AuthLayout>
+      <Logo size="md" />
+      <div className="mt-8 flex justify-center">
+        <Loader2 size={20} className="animate-spin text-ink-400" />
+      </div>
+    </AuthLayout>
+  );
+}
+
+function LoginPageInner() {
   const { user, loginWithEmail, loginWithGoogle, resetPassword } = useAuth();
   const { show } = useToast();
   const router = useRouter();
