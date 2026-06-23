@@ -69,7 +69,6 @@
   --bottomnav-h: 64px;
 }
 
-/* Couleurs par défaut pour le mode clair */
 * {
   border-color: var(--color-ink-200);
 }
@@ -81,45 +80,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* MODE DARK - APPLIQUÉ À TOUT LE SITE */
-.dark,
-.dark * {
-  border-color: var(--color-ink-700) !important;
-}
-
-.dark html,
-.dark body {
-  background: var(--color-ink-900) !important;
-  color: #ffffff !important;
-}
-
-.dark body {
-  background: var(--color-ink-900) !important;
-  color: #ffffff !important;
-}
-
-/* Tous les textes en blanc en mode dark */
-.dark p,
-.dark h1,
-.dark h2,
-.dark h3,
-.dark h4,
-.dark h5,
-.dark h6,
-.dark span,
-.dark li,
-.dark a,
-.dark label,
-.dark div:not(.dark .bg-*):not(.dark .border-*):not(.dark .shadow-*) {
-  color: #ffffff !important;
-}
-
-/* Styles de la scrollbar en mode dark */
-.dark ::-webkit-scrollbar-thumb {
-  background: var(--color-ink-600);
-}
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-500);
+body {
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 ::-webkit-scrollbar {
@@ -158,7 +120,7 @@ body {
   }
 
   .label-base {
-    @apply block text-sm font-medium text-ink-800 dark:text-white mb-1.5;
+    @apply block text-sm font-medium text-ink-800 dark:text-ink-200 mb-1.5;
   }
 
   .card-base {
@@ -196,7 +158,7 @@ body {
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2
     h-9 px-3 rounded-lg
-    text-ink-600 dark:text-white
+    text-ink-600 dark:text-ink-300
     text-sm font-medium
     transition-colors
     hover:bg-ink-100 dark:hover:bg-ink-700
@@ -217,4 +179,34 @@ body {
   .badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium;
   }
+}
+
+/* MODE DARK - FOND NOIR POUR TOUT LE SITE */
+.dark {
+  background: var(--color-ink-900) !important;
+  color: #ffffff !important;
+}
+
+.dark body {
+  background: var(--color-ink-900) !important;
+  color: #ffffff !important;
+}
+
+.dark .bg-ink-50 {
+  background: var(--color-ink-900) !important;
+}
+
+.dark .bg-white {
+  background: var(--color-ink-800) !important;
+}
+
+.dark .text-ink-600,
+.dark .text-ink-700,
+.dark .text-ink-800,
+.dark .text-ink-900 {
+  color: #ffffff !important;
+}
+
+.dark .border-ink-200 {
+  border-color: var(--color-ink-700) !important;
 }

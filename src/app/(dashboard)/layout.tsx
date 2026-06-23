@@ -88,7 +88,7 @@ export default function DashboardGroupLayout({
 
   return (
     <PreferencesProvider>
-      <div className="min-h-screen bg-ink-50 dark:bg-ink-950">
+      <div className="min-h-screen bg-ink-50 dark:bg-ink-900">
         <Sidebar
           collapsed={collapsed}
           onCollapse={setCollapsed}
