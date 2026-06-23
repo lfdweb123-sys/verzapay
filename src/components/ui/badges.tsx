@@ -109,13 +109,21 @@ import type { PaymentMethod } from "@/types";
 const METHOD_LABELS: Record<PaymentMethod, string> = {
   mobile_money: "Mobile Money",
   card: "Carte bancaire",
+  bank_transfer: "Virement bancaire", // ← AJOUTÉ : requis depuis l'ajout de "bank_transfer" à PaymentMethod
   wave: "Wave",
+};
+
+const METHOD_ICONS: Record<PaymentMethod, string> = {
+  mobile_money: "📱",
+  card: "💳",
+  bank_transfer: "🏦",
+  wave: "📱",
 };
 
 export function MethodPill({ method }: { method: PaymentMethod }) {
   return (
     <span className="inline-flex items-center gap-1 text-xs text-ink-600">
-      <span>{method === "card" ? "💳" : "📱"}</span>
+      <span>{METHOD_ICONS[method]}</span>
       {METHOD_LABELS[method]}
     </span>
   );
