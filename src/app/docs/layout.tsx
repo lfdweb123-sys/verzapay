@@ -4,11 +4,7 @@ import { MarketingFooter } from "@/components/marketing/footer";
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      id="docs-root"
-      className="min-h-screen bg-white text-ink-900 flex flex-col transition-colors
-                 [&.dark]:bg-zinc-950 [&.dark]:text-zinc-100"
-    >
+    <div id="docs-root" className="min-h-screen bg-white flex flex-col transition-colors">
       <MarketingHeader />
       <main className="flex-1 pt-24 pb-20">{children}</main>
       <MarketingFooter />

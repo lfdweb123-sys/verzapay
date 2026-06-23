@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *, html.dark, html.dark *));
+/* Le variant dark Tailwind ne répond QU'à html.dark — jamais à un .dark arbitraire */
+@custom-variant dark (&:where(html.dark *, html.dark));
 
 @theme {
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -105,41 +106,33 @@ body {
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--color-ink-300);
   border-radius: 8px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-400);
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-400); }
+
+html.dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+#docs-root.dark ::-webkit-scrollbar-thumb { background: #3f3f46; }
+#docs-root.dark ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Docs dark mode scopé — remplace les dark: Tailwind dans #docs-root ──────── */
+
+#docs-root.dark {
+  background: #09090b;
+  color: #f4f4f5;
 }
 
-html.dark ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-}
-html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
-}
-
-#docs-root.dark ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-}
-#docs-root.dark ::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
-}
-
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-none {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+#docs-root.dark .docs-code-block {
+  background: #09090b;
+  border-color: #27272a;
 }
 
 /* ── Components ──────────────────────────────────────────────────────────────── */
