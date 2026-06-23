@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { ShoppingCart, Plus, Minus, X, MessageCircle, Loader2, CheckCircle2, Package } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, MessageCircle, Loader2, CheckCircle2, Package, ArrowLeft } from "lucide-react";
 import { formatXOF } from "@/lib/utils";
 import type { Shop, ShopProduct } from "@/types";
 
@@ -205,16 +205,22 @@ export default function PublicShopPage() {
                 const outOfStock = p.stock !== null && p.stock === 0;
                 return (
                   <div key={p.id} className="rounded-xl border border-ink-100 overflow-hidden bg-white">
-                    <div className="aspect-square bg-ink-50 flex items-center justify-center overflow-hidden">
+                    {/* Image cliquable → page détail */}
+                    <a href={`/shop/${slug}/product/${p.id}`} className="block aspect-square bg-ink-50 overflow-hidden">
                       {p.imageBase64 ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imageBase64} alt={p.name} className="w-full h-full object-cover" />
+                        <img src={p.imageBase64} alt={p.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
                       ) : (
-                        <Package size={28} className="text-ink-200" />
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package size={28} className="text-ink-200" />
+                        </div>
                       )}
-                    </div>
+                    </a>
                     <div className="p-3">
-                      <p className="text-sm font-medium text-ink-900 line-clamp-2 leading-snug">{p.name}</p>
+                      {/* Nom cliquable → page détail */}
+                      <a href={`/shop/${slug}/product/${p.id}`} className="block">
+                        <p className="text-sm font-medium text-ink-900 line-clamp-2 leading-snug hover:underline">{p.name}</p>
+                      </a>
                       <p className="text-sm font-medium mt-1 tabular-nums" style={{ color: primaryColor }}>{formatXOF(p.price)}</p>
                       {p.stock !== null && p.stock <= 5 && p.stock > 0 && (
                         <p className="text-[11px] text-warning-700 mt-0.5">Plus que {p.stock} en stock</p>
@@ -237,7 +243,7 @@ export default function PublicShopPage() {
                           className="mt-2 w-full rounded-lg py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
                           style={{ background: primaryColor }}
                         >
-                          Ajouter
+                          + Ajouter
                         </button>
                       )}
                     </div>
@@ -247,6 +253,18 @@ export default function PublicShopPage() {
             </div>
           )}
         </div>
+
+        {/* Footer */}
+        <footer className="mt-16 border-t border-ink-100 bg-ink-50">
+          <div className="max-w-2xl mx-auto px-4 py-8 text-center">
+            <p className="text-xs text-ink-400 leading-relaxed">
+              Verzapay n&apos;est pas une banque et ne fournit pas elle-même de services de monnaie électronique.
+              Les opérations d&apos;encaissement et de décaissement sont exécutées par l&apos;intermédiaire
+              de solutions de paiement agréées, intégrées à notre plateforme.
+            </p>
+            <p className="text-xs text-ink-300 mt-3">© {new Date().getFullYear()} Verzapay</p>
+          </div>
+        </footer>
       </div>
 
       {/* Barre panier fixe */}
@@ -323,48 +341,70 @@ export default function PublicShopPage() {
         </div>
       )}
 
-      {/* Formulaire de commande */}
+      {/* Page de checkout en plein écran */}
       {checkoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setCheckoutOpen(false)} />
-          <div className="relative bg-white rounded-t-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-popover">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100">
-              <p className="font-medium text-ink-900">Informations de livraison</p>
-              <button onClick={() => setCheckoutOpen(false)} className="text-ink-400"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleCheckout} className="overflow-y-auto flex-1 p-5 space-y-4">
-              <div className="bg-ink-50 rounded-lg p-3 text-sm text-ink-700">
-                <p className="font-medium">Votre commande — {formatXOF(totalAmount)}</p>
-                {cart.map((c) => (
-                  <p key={c.product.id} className="text-xs text-ink-500 mt-0.5">{c.quantity} × {c.product.name}</p>
-                ))}
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <div className="max-w-lg mx-auto px-4 py-6">
+            <button onClick={() => setCheckoutOpen(false)} className="flex items-center gap-1.5 text-sm text-ink-600 hover:text-ink-900 mb-6">
+              <ArrowLeft size={16} /> Retour au panier
+            </button>
+
+            <h2 className="text-xl font-medium text-ink-900 mb-6">Finaliser la commande</h2>
+
+            {/* Récapitulatif */}
+            <div className="rounded-xl border border-ink-200 divide-y divide-ink-50 mb-6">
+              {cart.map((c) => (
+                <div key={c.product.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {c.product.imageBase64 ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.product.imageBase64} alt={c.product.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-ink-100 shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-ink-900 truncate">{c.product.name}</p>
+                      <p className="text-xs text-ink-500">{c.quantity} × {formatXOF(c.product.price)}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium tabular-nums shrink-0">{formatXOF(c.product.price * c.quantity)}</p>
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-4 py-3">
+                <p className="text-sm font-medium text-ink-900">Total</p>
+                <p className="font-medium tabular-nums" style={{ color: primaryColor }}>{formatXOF(totalAmount)}</p>
               </div>
+            </div>
+
+            <form onSubmit={handleCheckout} className="space-y-4">
               <div>
-                <label className="label-base">Nom complet *</label>
+                <label className="label-base">Votre nom complet *</label>
                 <input type="text" required value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Kofi Mensah" className="input-base" />
               </div>
               <div>
-                <label className="label-base">Téléphone Mobile Money *</label>
+                <label className="label-base">Téléphone Mobile Money * <span className="text-ink-400 font-normal">(pour le paiement)</span></label>
                 <input type="tel" required value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+229 96 00 00 00" className="input-base" />
               </div>
               <div>
-                <label className="label-base">Email (optionnel)</label>
+                <label className="label-base">Email <span className="text-ink-400 font-normal">(optionnel, pour le reçu)</span></label>
                 <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="vous@exemple.com" className="input-base" />
               </div>
               <div>
-                <label className="label-base">Adresse de livraison (optionnel)</label>
+                <label className="label-base">Adresse de livraison <span className="text-ink-400 font-normal">(optionnel)</span></label>
                 <input type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Quartier, ville…" className="input-base" />
               </div>
-              <p className="text-xs text-ink-400">
-                Une commission de 1,5% est appliquée par Verzapay sur le montant total. En validant, vous serez redirigé vers la page de paiement sécurisé.
+
+              <p className="text-xs text-ink-400 bg-ink-50 rounded-lg p-3">
+                En validant, vous serez redirigé vers une page de paiement sécurisé. Une commission de 1,5% est incluse dans le montant total.
               </p>
+
               <button
                 type="submit" disabled={submitting}
-                className="w-full rounded-xl py-3.5 text-white font-medium flex items-center justify-center gap-2"
+                className="w-full rounded-xl py-4 text-white font-medium flex items-center justify-center gap-2 text-base"
                 style={{ background: primaryColor }}
               >
-                {submitting && <Loader2 size={16} className="animate-spin" />}
-                Valider ma commande
+                {submitting ? <Loader2 size={18} className="animate-spin" /> : <ShoppingCart size={18} />}
+                Payer {formatXOF(totalAmount)}
               </button>
             </form>
           </div>

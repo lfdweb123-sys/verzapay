@@ -12,8 +12,9 @@ import { TwoFactorSettings } from "@/components/settings/two-factor-settings";
 import { CompanyLegalInfo } from "@/components/settings/company-legal-info";
 import { ApiKeyManager } from "@/components/settings/api-key-manager";
 import { EmailChangeRequest } from "@/components/settings/email-change-request";
+import { DisplaySettings } from "@/components/settings/display-settings";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { Loader2, User, Building2, ShieldCheck, Lock, Key, ChevronRight } from "lucide-react";
+import { Loader2, User, Building2, ShieldCheck, Lock, Key, ChevronRight, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -22,6 +23,7 @@ const TABS = [
   { id: "security", label: "Sécurité", icon: Lock },
   { id: "company", label: "Entreprise", icon: Building2 },
   { id: "api", label: "Clé API", icon: Key },
+  { id: "display", label: "Affichage", icon: Monitor },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -172,7 +174,14 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {!activeCompany && tab !== "profile" && tab !== "security" && (
+      {/* Onglet Affichage */}
+      {tab === "display" && (
+        <div className="space-y-5 max-w-2xl">
+          <DisplaySettings />
+        </div>
+      )}
+
+      {!activeCompany && tab !== "profile" && tab !== "security" && tab !== "display" && (
         <div className="card-base p-8 text-center max-w-7xl">
           <p className="text-sm text-ink-500">Créez ou sélectionnez une entreprise pour accéder à cette section.</p>
         </div>

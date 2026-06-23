@@ -8,6 +8,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useCompany } from "@/lib/company-context";
 import { useAuth } from "@/lib/auth-context";
+import { usePreferences } from "@/lib/preferences-context";
 import { StatCard, TxBadge, MethodPill, EmptyState, Spinner } from "@/components/ui/badges";
 import { KycBanner } from "@/components/dashboard/kyc-banner";
 import { MiniCalendar } from "@/components/dashboard/mini-calendar";
@@ -15,7 +16,7 @@ import {
   ArrowDownLeft, ArrowUpRight, TrendingUp, CheckCircle2,
   ShieldAlert, Plus, Send, ExternalLink,
 } from "lucide-react";
-import { formatXOF, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import type { Transaction } from "@/types";
 import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { format, subDays, isSameDay } from "date-fns";
@@ -24,6 +25,7 @@ import { fr } from "date-fns/locale";
 export default function DashboardPage() {
   const { activeCompany, loading: compLoading } = useCompany();
   const { appUser } = useAuth();
+  const { formatAmount } = usePreferences();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txLoading, setTxLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -105,7 +107,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="Paiements entrants (7j)"
-          value={formatXOF(totalIn)}
+          value={formatAmount(totalIn)}
           sub="+100% vs sem. dernière"
           subUp={true}
           icon={ArrowDownLeft}
@@ -113,7 +115,7 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Paiements sortants (7j)"
-          value={formatXOF(totalOut)}
+          value={formatAmount(totalOut)}
           icon={ArrowUpRight}
           loading={txLoading}
         />
@@ -126,7 +128,7 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Solde disponible"
-          value={formatXOF(activeCompany?.walletBalance ?? 0)}
+          value={formatAmount(activeCompany?.walletBalance ?? 0)}
           sub="Solde net après commission"
           icon={TrendingUp}
           loading={compLoading}
@@ -150,7 +152,7 @@ export default function DashboardPage() {
               <BarChart data={chartData} barSize={28}>
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#888780" }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  formatter={(v) => [formatXOF(Number(v)), "Volume"]}
+                  formatter={(v) => [formatAmount(Number(v)), "Volume"]}
                   contentStyle={{ fontSize: 12, border: "1px solid #E4E2DA", borderRadius: 8 }}
                   cursor={{ fill: "#F1EFE8" }}
                 />
@@ -212,7 +214,7 @@ export default function DashboardPage() {
                       {formatDateTime(tx.createdAt)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums">
-                      {formatXOF(tx.amount)}
+                      {formatAmount(tx.amount)}
                     </td>
                   </tr>
                 ))}

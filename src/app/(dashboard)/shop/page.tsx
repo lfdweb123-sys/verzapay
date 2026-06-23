@@ -164,7 +164,8 @@ export default function ShopHomePage() {
     );
   }
 
-  const shopUrl = typeof window !== "undefined" ? `${window.location.origin}/shop/${shop.slug}` : `/shop/${shop.slug}`;
+  const shopBase = process.env.NEXT_PUBLIC_SHOP_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+  const shopUrl = `${shopBase}/shop/${shop.slug}`;
   const totalSales = orders.filter((o) => o.status === "paid" || o.status === "fulfilled").reduce((s, o) => s + o.totalAmount, 0);
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
 

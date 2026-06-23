@@ -7,7 +7,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
 import { useToast } from "@/components/ui/toast";
 import { Spinner, EmptyState } from "@/components/ui/badges";
-import { formatXOF, formatDateTime, cn } from "@/lib/utils";
+import { formatDateTime, cn } from "@/lib/utils";
+import { usePreferences } from "@/lib/preferences-context";
 import type { ShopOrder, ShopOrderStatus } from "@/types";
 
 const STATUS_LABELS: Record<ShopOrderStatus, { label: string; cls: string }> = {
@@ -20,6 +21,7 @@ const STATUS_LABELS: Record<ShopOrderStatus, { label: string; cls: string }> = {
 export default function ShopOrdersPage() {
   const { user } = useAuth();
   const { activeCompany } = useCompany();
+  const { formatAmount } = usePreferences();
   const { show } = useToast();
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,12 +67,12 @@ export default function ShopOrdersPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={cn("badge", cfg.cls)}>{cfg.label}</span>
-                      <p className="text-sm font-medium tabular-nums">{formatXOF(o.totalAmount)}</p>
+                      <p className="text-sm font-medium tabular-nums">{formatAmount(o.totalAmount)}</p>
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-ink-500 space-y-0.5">
                     {o.items.map((item, i) => (
-                      <p key={i}>{item.quantity} × {item.productName} — {formatXOF(item.unitPrice * item.quantity)}</p>
+                      <p key={i}>{item.quantity} × {item.productName} — {formatAmount(item.unitPrice * item.quantity)}</p>
                     ))}
                   </div>
                 </div>

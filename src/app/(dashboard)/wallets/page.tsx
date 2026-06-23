@@ -6,12 +6,14 @@ import { db } from "@/lib/firebase";
 import { useCompany } from "@/lib/company-context";
 import { EmptyState, Spinner } from "@/components/ui/badges";
 import { Wallet, ArrowDownCircle, ArrowUpCircle, Building2 } from "lucide-react";
-import { formatXOF, formatDateTime, initials, colorForName } from "@/lib/utils";
+import { formatDateTime, initials, colorForName } from "@/lib/utils";
+import { usePreferences } from "@/lib/preferences-context";
 import Link from "next/link";
 import type { LedgerEntry } from "@/types";
 
 export default function WalletsPage() {
   const { companies, activeCompany } = useCompany();
+  const { formatAmount } = usePreferences();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +62,7 @@ export default function WalletsPage() {
                     <p className="text-xs text-ink-500">{c.kycStatus === "approved" ? "Vérifié" : "Non vérifié"}</p>
                   </div>
                 </div>
-                <p className="text-sm font-medium text-ink-900 tabular-nums shrink-0">{formatXOF(c.walletBalance ?? 0)}</p>
+                <p className="text-sm font-medium text-ink-900 tabular-nums shrink-0">{formatAmount(c.walletBalance ?? 0)}</p>
               </div>
             ))}
           </div>
@@ -76,7 +78,7 @@ export default function WalletsPage() {
               <Wallet size={14} />
               Solde disponible — {activeCompany?.name ?? "—"}
             </div>
-            <p className="text-3xl font-medium tabular-nums">{formatXOF(activeCompany?.walletBalance ?? 0)}</p>
+            <p className="text-3xl font-medium tabular-nums">{formatAmount(activeCompany?.walletBalance ?? 0)}</p>
           </div>
           {(activeCompany?.walletBalance ?? 0) > 0 && (
             <Link href="/payouts" className="hidden sm:inline-flex btn-secondary !bg-white/10 !border-white/20 !text-white hover:!bg-white/20">
@@ -87,11 +89,11 @@ export default function WalletsPage() {
         <div className="relative grid grid-cols-2 gap-3 mt-5 pt-4 border-t border-white/15">
           <div>
             <p className="text-brand-100 text-[11px] flex items-center gap-1"><ArrowDownCircle size={12} /> Total crédité</p>
-            <p className="text-sm font-medium mt-0.5 tabular-nums">{formatXOF(totalCredits)}</p>
+            <p className="text-sm font-medium mt-0.5 tabular-nums">{formatAmount(totalCredits)}</p>
           </div>
           <div>
             <p className="text-brand-100 text-[11px] flex items-center gap-1"><ArrowUpCircle size={12} /> Total débité</p>
-            <p className="text-sm font-medium mt-0.5 tabular-nums">{formatXOF(totalDebits)}</p>
+            <p className="text-sm font-medium mt-0.5 tabular-nums">{formatAmount(totalDebits)}</p>
           </div>
         </div>
       </div>
@@ -125,9 +127,9 @@ export default function WalletsPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className={"text-sm font-medium tabular-nums " + (entry.type === "credit" ? "text-success-700" : "text-danger-700")}>
-                    {entry.type === "credit" ? "+" : "-"}{formatXOF(entry.amount)}
+                    {entry.type === "credit" ? "+" : "-"}{formatAmount(entry.amount)}
                   </p>
-                  <p className="text-[11px] text-ink-400 tabular-nums">Solde : {formatXOF(entry.balanceAfter)}</p>
+                  <p className="text-[11px] text-ink-400 tabular-nums">Solde : {formatAmount(entry.balanceAfter)}</p>
                 </div>
               </div>
             ))}

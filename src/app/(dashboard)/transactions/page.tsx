@@ -6,7 +6,8 @@ import { db } from "@/lib/firebase";
 import { useCompany } from "@/lib/company-context";
 import { TxBadge, PayoutBadge, MethodPill, EmptyState, Spinner } from "@/components/ui/badges";
 import { CreditCard, Search, ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import { formatXOF, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
+import { usePreferences } from "@/lib/preferences-context";
 import type { Transaction, Payout } from "@/types";
 
 type UnifiedRow =
@@ -21,6 +22,7 @@ const DIRECTION_FILTERS = [
 
 export default function TransactionsPage() {
   const { activeCompany } = useCompany();
+  const { formatAmount } = usePreferences();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,15 +74,15 @@ export default function TransactionsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="card-base p-4">
           <p className="text-xs text-ink-500 flex items-center gap-1"><ArrowDownLeft size={12} /> Total entrant</p>
-          <p className="text-xl font-medium mt-1 tabular-nums text-success-700">{formatXOF(totalIn)}</p>
+          <p className="text-xl font-medium mt-1 tabular-nums text-success-700">{formatAmount(totalIn)}</p>
         </div>
         <div className="card-base p-4">
           <p className="text-xs text-ink-500 flex items-center gap-1"><ArrowUpRight size={12} /> Total sortant</p>
-          <p className="text-xl font-medium mt-1 tabular-nums text-danger-700">{formatXOF(totalOut)}</p>
+          <p className="text-xl font-medium mt-1 tabular-nums text-danger-700">{formatAmount(totalOut)}</p>
         </div>
         <div className="card-base p-4 hidden sm:block">
           <p className="text-xs text-ink-500">Solde net du flux</p>
-          <p className="text-xl font-medium mt-1 tabular-nums">{formatXOF(totalIn - totalOut)}</p>
+          <p className="text-xl font-medium mt-1 tabular-nums">{formatAmount(totalIn - totalOut)}</p>
         </div>
       </div>
 
@@ -148,7 +150,7 @@ export default function TransactionsPage() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-ink-500">{formatDateTime(r.createdAt)}</td>
                     <td className={"px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums " + (r.kind === "in" ? "text-success-700" : "text-danger-700")}>
-                      {r.kind === "in" ? "+" : "-"}{formatXOF(r.amount)}
+                      {r.kind === "in" ? "+" : "-"}{formatAmount(r.amount)}
                     </td>
                   </tr>
                 ))}

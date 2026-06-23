@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       currency: "XOF",
       description: `Commande boutique ${shop.name}`,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/shop/${shopSlug}`,
+      return_url: `${process.env.NEXT_PUBLIC_SHOP_APP_URL || process.env.NEXT_PUBLIC_APP_URL}/shop/${shopSlug}`,
     });
 
     if (!joonaRes.success) {

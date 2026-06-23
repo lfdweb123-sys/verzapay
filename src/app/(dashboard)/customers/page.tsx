@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, query, orderBy, onSnapshot, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useCompany } from "@/lib/company-context";
+import { usePreferences } from "@/lib/preferences-context";
 import { EmptyState, Spinner, TxBadge, MethodPill } from "@/components/ui/badges";
 import { Users, Search, X, Phone, Mail } from "lucide-react";
-import { formatXOF, formatDate, formatDateTime, initials } from "@/lib/utils";
+import { formatDate, formatDateTime, initials } from "@/lib/utils";
 import type { Transaction } from "@/types";
 
 interface AggregatedCustomer {
@@ -22,6 +23,7 @@ interface AggregatedCustomer {
 
 export default function CustomersPage() {
   const { activeCompany } = useCompany();
+  const { formatAmount } = usePreferences();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -89,12 +91,12 @@ export default function CustomersPage() {
         </div>
         <div className="card-base p-4">
           <p className="text-xs text-ink-500">Total encaissé</p>
-          <p className="text-xl font-medium mt-1 tabular-nums">{formatXOF(customers.reduce((s, c) => s + c.totalSpent, 0))}</p>
+          <p className="text-xl font-medium mt-1 tabular-nums">{formatAmount(customers.reduce((s, c) => s + c.totalSpent, 0))}</p>
         </div>
         <div className="card-base p-4 hidden sm:block">
           <p className="text-xs text-ink-500">Panier moyen</p>
           <p className="text-xl font-medium mt-1 tabular-nums">
-            {customers.length ? formatXOF(customers.reduce((s, c) => s + c.totalSpent, 0) / customers.length) : "—"}
+            {customers.length ? formatAmount(customers.reduce((s, c) => s + c.totalSpent, 0) / customers.length) : "—"}
           </p>
         </div>
       </div>
@@ -139,7 +141,7 @@ export default function CustomersPage() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-medium text-ink-900 tabular-nums">{formatXOF(c.totalSpent)}</p>
+                  <p className="text-sm font-medium text-ink-900 tabular-nums">{formatAmount(c.totalSpent)}</p>
                   <p className="text-xs text-ink-500">{c.transactionsCount} transaction{c.transactionsCount > 1 ? "s" : ""}</p>
                 </div>
               </button>
@@ -173,7 +175,7 @@ export default function CustomersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-ink-50 rounded-lg p-3">
                   <p className="text-xs text-ink-500">Total dépensé</p>
-                  <p className="font-medium tabular-nums">{formatXOF(selected.totalSpent)}</p>
+                  <p className="font-medium tabular-nums">{formatAmount(selected.totalSpent)}</p>
                 </div>
                 <div className="bg-ink-50 rounded-lg p-3">
                   <p className="text-xs text-ink-500">Dernier achat</p>
@@ -189,7 +191,7 @@ export default function CustomersPage() {
                     .map((tx) => (
                       <div key={tx.id} className="flex items-center justify-between p-2.5 rounded-lg border border-ink-100">
                         <div>
-                          <p className="text-sm font-medium tabular-nums">{formatXOF(tx.amount)}</p>
+                          <p className="text-sm font-medium tabular-nums">{formatAmount(tx.amount)}</p>
                           <p className="text-xs text-ink-500">{formatDateTime(tx.createdAt)}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">

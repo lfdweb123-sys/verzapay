@@ -5,16 +5,18 @@ import { collection, query, orderBy, onSnapshot, limit } from "firebase/firestor
 import { db } from "@/lib/firebase";
 import { useCompany } from "@/lib/company-context";
 import { useAuth } from "@/lib/auth-context";
+import { usePreferences } from "@/lib/preferences-context";
 import { useToast } from "@/components/ui/toast";
 import { PayoutBadge, EmptyState, Spinner } from "@/components/ui/badges";
 import { TransactionTwoFactorModal } from "@/components/payments/transaction-two-factor-modal";
 import { ArrowUpRight, Plus, X, Loader2 } from "lucide-react";
-import { formatXOF, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import type { Payout } from "@/types";
 
 export default function PayoutsPage() {
   const { activeCompany } = useCompany();
   const { user, appUser } = useAuth();
+  const { formatAmount } = usePreferences();
   const { show } = useToast();
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +109,7 @@ export default function PayoutsPage() {
         <div>
           <p className="text-xs text-ink-500">Solde disponible</p>
           <p className="text-2xl font-medium text-ink-900 tabular-nums mt-0.5">
-            {formatXOF(activeCompany?.walletBalance ?? 0)}
+            {formatAmount(activeCompany?.walletBalance ?? 0)}
           </p>
         </div>
         {canPayout && (
@@ -150,7 +152,7 @@ export default function PayoutsPage() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap"><PayoutBadge status={po.status} /></td>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-ink-500">{formatDateTime(po.createdAt)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums text-danger-700">-{formatXOF(po.amount)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums text-danger-700">-{formatAmount(po.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -169,7 +171,7 @@ export default function PayoutsPage() {
             <form onSubmit={handleSubmitClick} className="p-5 space-y-4">
               <div className="bg-ink-50 rounded-lg p-3 text-center">
                 <p className="text-xs text-ink-500">Solde disponible</p>
-                <p className="font-medium text-ink-900 tabular-nums">{formatXOF(activeCompany?.walletBalance ?? 0)}</p>
+                <p className="font-medium text-ink-900 tabular-nums">{formatAmount(activeCompany?.walletBalance ?? 0)}</p>
               </div>
               <div>
                 <label className="label-base">Montant (XOF) *</label>
@@ -206,7 +208,7 @@ export default function PayoutsPage() {
 
       <TransactionTwoFactorModal
         open={show2FA}
-        actionLabel={`retrait de ${formatXOF(parseFloat(amount) || 0)}`}
+        actionLabel={`retrait de ${formatAmount(parseFloat(amount) || 0)}`}
         onClose={() => setShow2FA(false)}
         onVerified={handle2FAVerified}
       />

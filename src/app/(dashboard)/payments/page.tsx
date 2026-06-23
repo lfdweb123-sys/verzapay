@@ -6,7 +6,8 @@ import { db } from "@/lib/firebase";
 import { useCompany } from "@/lib/company-context";
 import { TxBadge, MethodPill, EmptyState, Spinner } from "@/components/ui/badges";
 import { ArrowDownLeft, Search } from "lucide-react";
-import { formatXOF, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
+import { usePreferences } from "@/lib/preferences-context";
 import Link from "next/link";
 import type { Transaction, TransactionStatus } from "@/types";
 
@@ -19,6 +20,7 @@ const STATUS_FILTERS: { label: string; value: TransactionStatus | "all" }[] = [
 
 export default function PaymentsPage() {
   const { activeCompany } = useCompany();
+  const { formatAmount } = usePreferences();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -63,7 +65,7 @@ export default function PaymentsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="card-base p-4">
           <p className="text-xs text-ink-500">Total reçu (filtré)</p>
-          <p className="text-xl font-medium mt-1 tabular-nums">{formatXOF(totalFiltered)}</p>
+          <p className="text-xl font-medium mt-1 tabular-nums">{formatAmount(totalFiltered)}</p>
         </div>
         <div className="card-base p-4">
           <p className="text-xs text-ink-500">Transactions affichées</p>
@@ -138,9 +140,9 @@ export default function PaymentsPage() {
                     <td className="px-4 py-3 whitespace-nowrap"><MethodPill method={tx.method} /></td>
                     <td className="px-4 py-3 whitespace-nowrap"><TxBadge status={tx.status} /></td>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-ink-500">{formatDateTime(tx.createdAt)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums">{formatXOF(tx.amount)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-xs text-ink-500 tabular-nums">{formatXOF(tx.commission)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums text-success-700">{formatXOF(tx.netAmount)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums">{formatAmount(tx.amount)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-xs text-ink-500 tabular-nums">{formatAmount(tx.commission)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right font-medium tabular-nums text-success-700">{formatAmount(tx.netAmount)}</td>
                   </tr>
                 ))}
               </tbody>

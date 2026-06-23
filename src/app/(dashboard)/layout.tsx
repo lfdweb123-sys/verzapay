@@ -12,6 +12,7 @@ import { useInactivityLogout } from "@/hooks/use-inactivity-logout";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { PreferencesProvider } from "@/lib/preferences-context";
 
 export default function DashboardGroupLayout({ children }: { children: React.ReactNode }) {
   const { user, appUser, loading, twoFactorVerified, logout } = useAuth();
@@ -55,36 +56,38 @@ export default function DashboardGroupLayout({ children }: { children: React.Rea
   if (requires2FA && !twoFactorVerified) return null;
 
   return (
-    <div className="min-h-screen bg-ink-50">
-      <Sidebar
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-      />
+    <PreferencesProvider>
+      <div className="min-h-screen bg-ink-50">
+        <Sidebar
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+        />
 
-      {/* Header */}
-      <DashboardHeader sidebarCollapsed={collapsed} onMenuClick={() => setMobileOpen(true)} />
+        {/* Header */}
+        <DashboardHeader sidebarCollapsed={collapsed} onMenuClick={() => setMobileOpen(true)} />
 
-      {/* Contenu principal — largeur uniforme sur toutes les pages */}
-      <main
-        className={cn(
-          "pt-16 pb-20 lg:pb-6 min-h-screen transition-all duration-300",
-          "lg:pl-[260px]",
-          collapsed && "lg:pl-[76px]"
-        )}
-      >
-        <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in">
-          {children}
-        </div>
-      </main>
+        {/* Contenu principal — largeur uniforme sur toutes les pages */}
+        <main
+          className={cn(
+            "pt-16 pb-20 lg:pb-6 min-h-screen transition-all duration-300",
+            "lg:pl-[260px]",
+            collapsed && "lg:pl-[76px]"
+          )}
+        >
+          <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in">
+            {children}
+          </div>
+        </main>
 
-      {/* Bottom nav mobile */}
-      <BottomNav />
-      {/* Initialisation FCM push */}
-      <FcmInit />
-      {/* Avertissement avant déconnexion par inactivité */}
-      <InactivityWarningModal open={showWarning} secondsLeft={secondsLeft} onContinue={stayActive} />
-    </div>
+        {/* Bottom nav mobile */}
+        <BottomNav />
+        {/* Initialisation FCM push */}
+        <FcmInit />
+        {/* Avertissement avant déconnexion par inactivité */}
+        <InactivityWarningModal open={showWarning} secondsLeft={secondsLeft} onContinue={stayActive} />
+      </div>
+    </PreferencesProvider>
   );
 }

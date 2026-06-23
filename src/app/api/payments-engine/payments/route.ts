@@ -101,22 +101,29 @@ export async function POST(req: NextRequest) {
 
     const dueDate = computeDueDate(DEFAULT_DUE_DAYS);
 
+    // customer_name est OBLIGATOIRE côté JoonaPay quand customer_uuid n'est pas fourni
+    // (Mode 2 — voir doc "Créer un paiement"). On met un fallback pour ne jamais
+    // envoyer undefined et déclencher une 422.
+    const resolvedCustomerName = customerName?.trim() || "Client Verzapay";
+
     // Enregistrement en DB (généré avant l'appel JoonaPay pour servir de merchant_transaction_id)
     const txRef = db.collection("companies").doc(companyId).collection("transactions").doc();
 
     // Appel au partenaire de paiement
+    // NOTE: pas de `return_url` — ce champ n'existe pas dans CreatePaymentRequest
+    // côté JoonaPay (vérifié contre le schéma officiel). Le retour client après
+    // paiement se gère via webhook_url + le payment_link affiché/partagé.
     const joonaRes = await createJoonapayPayment({
       amount,
       currency: country.currency,
       country_uuid: country.uuid,
       due_date: dueDate,
       description: description ?? "Paiement Verzapay",
-      customer_name: customerName ?? undefined,
+      customer_name: resolvedCustomerName,
       customer_phone: customerPhone ?? undefined,
       customer_email: customerEmail ?? undefined,
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
     });
 
     if (!joonaRes.success) {
@@ -138,7 +145,7 @@ export async function POST(req: NextRequest) {
       status: "pending",
       description: description ?? undefined,
       imageBase64: imageBase64 ?? null,
-      customerName: customerName ?? null,
+      customerName: resolvedCustomerName,
       customerPhone: customerPhone ?? null,
       customerEmail: customerEmail ?? null,
       createdAt: Date.now(),

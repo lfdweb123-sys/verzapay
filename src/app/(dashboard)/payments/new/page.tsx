@@ -8,10 +8,11 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
 import { ImageUploadField } from "@/components/payments/image-upload-field";
 import { TransactionTwoFactorModal } from "@/components/payments/transaction-two-factor-modal";
-import { formatXOF } from "@/lib/utils";
+import { usePreferences } from "@/lib/preferences-context";
 
 export default function NewPaymentPage() {
   const { activeCompany } = useCompany();
+  const { formatAmount } = usePreferences();
   const { user, appUser } = useAuth();
   const { show } = useToast();
 
@@ -166,7 +167,7 @@ export default function NewPaymentPage() {
 
       <TransactionTwoFactorModal
         open={show2FA}
-        actionLabel={`paiement de ${formatXOF(parseFloat(amount) || 0)}`}
+        actionLabel={`paiement de ${formatAmount(parseFloat(amount) || 0)}`}
         onClose={() => setShow2FA(false)}
         onVerified={handle2FAVerified}
       />
