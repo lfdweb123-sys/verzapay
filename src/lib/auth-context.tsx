@@ -50,7 +50,7 @@ async function ensureUserDoc(user: User): Promise<AppUser> {
     activeCompanyId: null,
     fcmTokens: [],
     isAdmin: false,
-    theme: 'light',
+    theme: "light",
     twoFactorEnabled: true,
     transactionTwoFactorEnabled: true,
   };
@@ -66,14 +66,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
       if (u) {
-        const profile = await ensureUserDoc(u);
+        const ref = doc(db, "users", u.uid);
+        const snap = await getDoc(ref);
+        const data = snap.exists() ? (snap.data() as AppUser & {
+          emailChangePending?: boolean;
+        }) : null;
+
+        // Changement d'email validé par admin en attente de confirmation
+        // → déconnecter et rediriger vers /login?emailChange=1
+        if (data?.emailChangePending) {
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("emailChangeUid", u.uid);
+          }
+          await firebaseSignOut(auth);
+          // onAuthStateChanged va se re-déclencher avec u=null,
+          // on laisse le redirect ici
+          window.location.href = "/login?emailChange=1";
+          return;
+        }
+
+        const profile = data ?? (await ensureUserDoc(u));
+        setUser(u);
         setAppUser(profile);
+
         // Restaurer l'état 2FA de cette session si déjà vérifié
-        const stored = typeof window !== "undefined" ? sessionStorage.getItem(sessionKeyFor(u.uid)) : null;
+        const stored =
+          typeof window !== "undefined"
+            ? sessionStorage.getItem(sessionKeyFor(u.uid))
+            : null;
         setTwoFactorVerifiedState(stored === "true");
       } else {
+        setUser(null);
         setAppUser(null);
         setTwoFactorVerifiedState(false);
       }
@@ -120,8 +144,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user, appUser, loading, twoFactorVerified, setTwoFactorVerified,
-        registerWithEmail, loginWithEmail, loginWithGoogle, resetPassword, logout,
+        user,
+        appUser,
+        loading,
+        twoFactorVerified,
+        setTwoFactorVerified,
+        registerWithEmail,
+        loginWithEmail,
+        loginWithGoogle,
+        resetPassword,
+        logout,
       }}
     >
       {children}
