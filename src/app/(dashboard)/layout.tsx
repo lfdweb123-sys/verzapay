@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { PreferencesProvider } from "@/lib/preferences-context";
+import { CompanyProvider } from "@/lib/company-context"; // AJOUTE CETTE LIGNE
 
 export default function DashboardGroupLayout({
   children,
@@ -88,40 +89,42 @@ export default function DashboardGroupLayout({
 
   return (
     <PreferencesProvider>
-      <div className="min-h-screen bg-ink-50 dark:bg-ink-900">
-        <Sidebar
-          collapsed={collapsed}
-          onCollapse={setCollapsed}
-          mobileOpen={mobileOpen}
-          onMobileClose={() => setMobileOpen(false)}
-        />
+      <CompanyProvider> {/* AJOUTE CETTE LIGNE */}
+        <div className="min-h-screen bg-ink-50 dark:bg-ink-900">
+          <Sidebar
+            collapsed={collapsed}
+            onCollapse={setCollapsed}
+            mobileOpen={mobileOpen}
+            onMobileClose={() => setMobileOpen(false)}
+          />
 
-        <DashboardHeader
-          sidebarCollapsed={collapsed}
-          onMenuClick={() => setMobileOpen(true)}
-        />
+          <DashboardHeader
+            sidebarCollapsed={collapsed}
+            onMenuClick={() => setMobileOpen(true)}
+          />
 
-        <main
-          className={cn(
-            "pt-16 pb-20 lg:pb-6 min-h-screen transition-all duration-300",
-            "lg:pl-[260px]",
-            collapsed && "lg:pl-[76px]"
-          )}
-        >
-          <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in">
-            {children}
-          </div>
-        </main>
+          <main
+            className={cn(
+              "pt-16 pb-20 lg:pb-6 min-h-screen transition-all duration-300",
+              "lg:pl-[260px]",
+              collapsed && "lg:pl-[76px]"
+            )}
+          >
+            <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in">
+              {children}
+            </div>
+          </main>
 
-        <BottomNav />
-        <FcmInit />
+          <BottomNav />
+          <FcmInit />
 
-        <InactivityWarningModal
-          open={showWarning}
-          secondsLeft={secondsLeft}
-          onContinue={stayActive}
-        />
-      </div>
+          <InactivityWarningModal
+            open={showWarning}
+            secondsLeft={secondsLeft}
+            onContinue={stayActive}
+          />
+        </div>
+      </CompanyProvider>
     </PreferencesProvider>
   );
 }
