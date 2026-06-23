@@ -1,9 +1,14 @@
+// app/(docs)/docs/layout.tsx
 import { MarketingHeader } from "@/components/marketing/header";
 import { MarketingFooter } from "@/components/marketing/footer";
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-950 flex flex-col transition-colors">
+    <div
+      id="docs-root"
+      className="min-h-screen bg-white text-ink-900 flex flex-col transition-colors
+                 [&.dark]:bg-zinc-950 [&.dark]:text-zinc-100"
+    >
       <MarketingHeader />
       <main className="flex-1 pt-24 pb-20">{children}</main>
       <MarketingFooter />

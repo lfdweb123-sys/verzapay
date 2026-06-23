@@ -36,18 +36,21 @@ function useDarkMode() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("verzapay-theme");
+    const root = document.getElementById("docs-root");
+    if (!root) return;
+    const stored = localStorage.getItem("verzapay-docs-theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const initial = stored ? stored === "dark" : prefersDark;
     setDark(initial);
-    document.documentElement.classList.toggle("dark", initial);
+    root.classList.toggle("dark", initial);
   }, []);
 
   const toggle = useCallback(() => {
     setDark((prev) => {
       const next = !prev;
-      document.documentElement.classList.toggle("dark", next);
-      localStorage.setItem("verzapay-theme", next ? "dark" : "light");
+      const root = document.getElementById("docs-root");
+      root?.classList.toggle("dark", next);
+      localStorage.setItem("verzapay-docs-theme", next ? "dark" : "light");
       return next;
     });
   }, []);
