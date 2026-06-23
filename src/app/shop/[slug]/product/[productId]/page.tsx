@@ -135,7 +135,7 @@ export default function PublicProductPage() {
 
         {/* WhatsApp */}
         {shop.whatsappNumber && (
-          
+          <a
             href={`https://wa.me/${shop.whatsappNumber.replace(/\D/g, "")}?text=${encodeURIComponent(`Bonjour, je suis intéressé(e) par "${product.name}" à ${formatXOF(product.price)} sur votre boutique ${shop.name}.`)}`}
             target="_blank" rel="noopener noreferrer"
             className="mt-4 w-full rounded-xl py-3.5 border border-success-300 text-success-700 font-medium flex items-center justify-center gap-2 hover:bg-success-50 transition-colors"
