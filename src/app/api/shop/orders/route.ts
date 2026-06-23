@@ -66,12 +66,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Le montant total de la commande est trop faible" }, { status: 400 });
     }
 
+    // NOTE: `return_url` n'existe pas dans CreatePaymentRequest côté JoonaPay
+    // (vérifié contre le schéma officiel — voir payments/route.ts). Le retour
+    // client après paiement se gère via webhook_url + le payment_link affiché
+    // sur la page de checkout, pas via un paramètre de redirection.
     const joonaRes = await createJoonapayPayment({
       amount: totalAmount,
       currency: "XOF",
       description: `Commande boutique ${shop.name}`,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
-      return_url: `${process.env.NEXT_PUBLIC_SHOP_APP_URL || process.env.NEXT_PUBLIC_APP_URL}/shop/${shopSlug}`,
     });
 
     if (!joonaRes.success) {
@@ -81,11 +84,16 @@ export async function POST(req: NextRequest) {
     const commission = Math.round(totalAmount * (company.commissionRate ?? 0.015));
     const netAmount = totalAmount - commission;
 
+    // Le schéma PaymentCreatedResponse expose `uuid` (pas `id`) et `payment_link`
+    // (pas `checkout_url`) — voir payments/route.ts pour la même convention.
+    const joonapayPaymentUuid = joonaRes.data?.uuid ?? null;
+    const paymentLink = joonaRes.data?.payment_link ?? "#";
+
     const txRef = db.collection("companies").doc(shop.companyId).collection("transactions").doc();
     const tx: Transaction = {
       id: txRef.id,
       companyId: shop.companyId,
-      joonapayPaymentId: joonaRes.data?.id ?? null,
+      joonapayPaymentId: joonapayPaymentUuid,
       amount: totalAmount,
       currency: "XOF",
       commission,
@@ -113,7 +121,7 @@ export async function POST(req: NextRequest) {
       customerEmail: customerEmail ?? null,
       customerAddress: customerAddress ?? null,
       status: "pending",
-      joonapayPaymentId: joonaRes.data?.id ?? null,
+      joonapayPaymentId: joonapayPaymentUuid,
       transactionId: txRef.id,
       createdAt: Date.now(),
       paidAt: null,
@@ -122,7 +130,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       orderId: orderRef.id,
-      checkoutUrl: (joonaRes.data as { checkout_url?: string })?.checkout_url ?? "#",
+      checkoutUrl: paymentLink,
       totalAmount,
     });
   } catch (err) {
