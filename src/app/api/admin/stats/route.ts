@@ -18,13 +18,33 @@ export async function GET(req: NextRequest) {
     const suspendedCompanies = companies.filter((c) => c.suspended === true).length;
     const totalWalletBalance = companies.reduce((s, c) => s + (c.walletBalance ?? 0), 0);
 
-    // Agrégation transactions (collectionGroup) des 30 derniers jours pour le volume
+    // collectionGroup sans filtre de date — évite l'index composite manquant
+    // On filtre en mémoire après, limite 5000 docs max
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const txSnap = await db
-      .collectionGroup("transactions")
-      .where("createdAt", ">=", thirtyDaysAgo)
-      .limit(2000)
-      .get();
+
+    let txSnap;
+    try {
+      txSnap = await db
+        .collectionGroup("transactions")
+        .orderBy("createdAt", "desc")
+        .limit(5000)
+        .get();
+    } catch (indexErr) {
+      // Si l'index collectionGroup n'existe pas encore, on renvoie les stats partielles
+      console.error("collectionGroup index manquant:", indexErr);
+      return NextResponse.json({
+        totalCompanies,
+        approvedCompanies,
+        pendingKyc,
+        suspendedCompanies,
+        totalWalletBalance,
+        totalVolume30d: 0,
+        totalCommission30d: 0,
+        successRate: 0,
+        transactionsCount30d: 0,
+        warning: "Index collectionGroup manquant — créez-le dans la console Firebase",
+      });
+    }
 
     let totalVolume30d = 0;
     let totalCommission30d = 0;
@@ -33,6 +53,8 @@ export async function GET(req: NextRequest) {
 
     txSnap.docs.forEach((d) => {
       const tx = d.data();
+      // Filtre 30j en mémoire
+      if ((tx.createdAt ?? 0) < thirtyDaysAgo) return;
       totalCount++;
       if (tx.status === "completed") {
         completedCount++;
@@ -56,6 +78,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/admin/stats:", err);
-    return NextResponse.json({ error: "Une erreur est survenue" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Erreur inconnue";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
