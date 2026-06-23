@@ -1,21 +1,26 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, Plus, Send, X, Menu } from "lucide-react";
+import { Bell, Plus, Send, X, Menu, ChevronDown, LogOut } from "lucide-react";
 import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
 import { cn, formatRelative } from "@/lib/utils";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import type { NotificationItem } from "@/types";
 import Link from "next/link";
 
 export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarCollapsed: boolean; onMenuClick?: () => void }) {
-  const { user } = useAuth();
+  const { user, appUser, logout } = useAuth();
   const { activeCompany } = useCompany();
+  const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -35,6 +40,7 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -45,6 +51,12 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
     for (const n of notifications.filter((x) => !x.read)) {
       await updateDoc(doc(db, "notifications", n.id), { read: true });
     }
+  }
+
+  async function handleLogout() {
+    setProfileOpen(false);
+    await logout();
+    router.push("/login");
   }
 
   return (
@@ -121,6 +133,36 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Profil cliquable : avatar + chevron, ouvre un menu avec déconnexion */}
+        <div className="relative" ref={profileRef}>
+          <button
+            onClick={() => setProfileOpen((v) => !v)}
+            className="flex items-center gap-1.5 h-9 pl-1 pr-1.5 sm:pr-2 rounded-lg hover:bg-ink-100 transition-colors"
+            aria-label="Menu profil"
+          >
+            <UserAvatar photoURL={appUser?.photoURL} name={appUser?.displayName ?? user?.email ?? "U"} size={28} />
+            <ChevronDown size={14} className="hidden sm:block text-ink-400" />
+          </button>
+
+          {profileOpen && (
+            <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-ink-200 rounded-xl shadow-popover z-50 overflow-hidden animate-slide-up">
+              <div className="px-4 py-3 border-b border-ink-100">
+                <p className="text-sm font-medium text-ink-900 truncate">{appUser?.displayName ?? "—"}</p>
+                <p className="text-xs text-ink-500 truncate">{user?.email}</p>
+              </div>
+              <div className="py-1">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-danger-700 hover:bg-danger-50 transition-colors"
+                >
+                  <LogOut size={16} />
+                  Déconnexion
+                </button>
               </div>
             </div>
           )}
