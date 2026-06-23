@@ -1,15 +1,18 @@
-const JOONAPAY_BASE_URL = "https://apis.joonapay.com/api/v1/developer";
+// lib/joonapay.ts
 
-function getJoonapayHeaders(): Record<string, string> {
-  const clientKey = process.env.JOONAPAY_CLIENT_KEY;
-  const privateKey = process.env.JOONAPAY_PRIVATE_KEY;
-  if (!clientKey || !privateKey) {
-    throw new Error("Clés Joonapay manquantes (JOONAPAY_CLIENT_KEY / JOONAPAY_PRIVATE_KEY)");
+const JOONAPAY_PROXY_URL = process.env.JOONAPAY_PROXY_URL;
+
+function getProxyHeaders(): Record<string, string> {
+  const proxySecret = process.env.PROXY_SECRET;
+  if (!JOONAPAY_PROXY_URL) {
+    throw new Error("Variable d'environnement JOONAPAY_PROXY_URL manquante");
+  }
+  if (!proxySecret) {
+    throw new Error("Variable d'environnement PROXY_SECRET manquante");
   }
   return {
-    "X-Client-Key": clientKey,
-    "X-Private-Key": privateKey,
     "Content-Type": "application/json",
+    "X-Proxy-Secret": proxySecret,
   };
 }
 
@@ -44,9 +47,9 @@ export interface CreatePaymentResult {
 export async function createJoonapayPayment(
   params: CreatePaymentParams
 ): Promise<JoonapayApiResponse<CreatePaymentResult>> {
-  const res = await fetch(`${JOONAPAY_BASE_URL}/payments`, {
+  const res = await fetch(`${JOONAPAY_PROXY_URL}/api/v1/developer/payments`, {
     method: "POST",
-    headers: getJoonapayHeaders(),
+    headers: getProxyHeaders(),
     body: JSON.stringify(params),
   });
   if (!res.ok) {
@@ -56,9 +59,11 @@ export async function createJoonapayPayment(
   return res.json();
 }
 
-export async function getJoonapayPayment(id: string): Promise<JoonapayApiResponse<CreatePaymentResult>> {
-  const res = await fetch(`${JOONAPAY_BASE_URL}/payments/${id}`, {
-    headers: getJoonapayHeaders(),
+export async function getJoonapayPayment(
+  id: string
+): Promise<JoonapayApiResponse<CreatePaymentResult>> {
+  const res = await fetch(`${JOONAPAY_PROXY_URL}/api/v1/developer/payments/${id}`, {
+    headers: getProxyHeaders(),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -84,9 +89,9 @@ export interface CreatePayoutResult {
 export async function createJoonapayPayout(
   params: CreatePayoutParams
 ): Promise<JoonapayApiResponse<CreatePayoutResult>> {
-  const res = await fetch(`${JOONAPAY_BASE_URL}/payouts`, {
+  const res = await fetch(`${JOONAPAY_PROXY_URL}/api/v1/developer/payouts`, {
     method: "POST",
-    headers: getJoonapayHeaders(),
+    headers: getProxyHeaders(),
     body: JSON.stringify(params),
   });
   if (!res.ok) {
@@ -103,8 +108,8 @@ export interface JoonapayBalance {
 }
 
 export async function getJoonapayBalance(): Promise<JoonapayApiResponse<JoonapayBalance>> {
-  const res = await fetch(`${JOONAPAY_BASE_URL}/balance`, {
-    headers: getJoonapayHeaders(),
+  const res = await fetch(`${JOONAPAY_PROXY_URL}/api/v1/developer/balance`, {
+    headers: getProxyHeaders(),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
