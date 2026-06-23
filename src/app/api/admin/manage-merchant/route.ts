@@ -29,21 +29,33 @@ export async function POST(req: NextRequest) {
 
     const userRef = db.collection("users").doc(targetUid);
     const userSnap = await userRef.get();
-    if (!userSnap.exists) return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+    if (!userSnap.exists) {
+      return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
+    }
 
     const userData = userSnap.data()!;
 
     if (action === "disable") {
       // Désactiver dans Firebase Auth (bloque la connexion)
       await auth.updateUser(targetUid, { disabled: true });
+      
       // Marquer dans Firestore
-      await userRef.update({ disabled: true, disabledAt: Date.now(), disabledReason: reason ?? null });
+      await userRef.update({ 
+        disabled: true, 
+        disabledAt: Date.now(), 
+        disabledReason: reason ?? null 
+      });
+      
       // Suspendre aussi toutes les entreprises de ce marchand
       const companiesSnap = await db.collection("companies")
         .where("ownerUid", "==", targetUid).get();
+      
       const batch = db.batch();
       companiesSnap.docs.forEach((d) => {
-        batch.update(d.ref, { suspended: true, suspendedReason: reason ?? "Compte marchand désactivé par l'administration" });
+        batch.update(d.ref, { 
+          suspended: true, 
+          suspendedReason: reason ?? "Compte marchand désactivé par l'administration" 
+        });
       });
       await batch.commit();
 
@@ -63,13 +75,22 @@ export async function POST(req: NextRequest) {
 
     if (action === "enable") {
       await auth.updateUser(targetUid, { disabled: false });
-      await userRef.update({ disabled: false, disabledAt: null, disabledReason: null });
+      await userRef.update({ 
+        disabled: false, 
+        disabledAt: null, 
+        disabledReason: null 
+      });
+      
       // Réactiver les entreprises
       const companiesSnap = await db.collection("companies")
         .where("ownerUid", "==", targetUid).get();
+      
       const batch = db.batch();
       companiesSnap.docs.forEach((d) => {
-        batch.update(d.ref, { suspended: false, suspendedReason: null });
+        batch.update(d.ref, { 
+          suspended: false, 
+          suspendedReason: null 
+        });
       });
       await batch.commit();
 
@@ -91,8 +112,14 @@ export async function POST(req: NextRequest) {
     if (action === "delete") {
       // Supprimer de Firebase Auth (connexion impossible)
       await auth.deleteUser(targetUid);
+      
       // Marquer dans Firestore comme supprimé (garder les données pour traçabilité)
-      await userRef.update({ deleted: true, deletedAt: Date.now(), email: `[supprimé] ${userData.email}` });
+      await userRef.update({ 
+        deleted: true, 
+        deletedAt: Date.now(), 
+        email: `[supprimé] ${userData.email}` 
+      });
+      
       return NextResponse.json({ ok: true });
     }
 
@@ -101,6 +128,9 @@ export async function POST(req: NextRequest) {
     console.error("POST /api/admin/manage-merchant:", err);
     const message = err instanceof Error ? err.message : "Erreur serveur";
     const isValidationError = message.startsWith("Donnée invalide");
-    return NextResponse.json({ error: isValidationError ? message : "Une erreur est survenue" }, { status: isValidationError ? 400 : 500 });
+    return NextResponse.json(
+      { error: isValidationError ? message : "Une erreur est survenue" }, 
+      { status: isValidationError ? 400 : 500 }
+    );
   }
 }

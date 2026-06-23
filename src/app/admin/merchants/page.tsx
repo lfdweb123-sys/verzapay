@@ -71,7 +71,11 @@ export default function AdminMerchantsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur");
-      const labels = { disable: "Marchand désactivé", enable: "Marchand réactivé", delete: "Compte supprimé" };
+      const labels = { 
+        disable: "Marchand désactivé", 
+        enable: "Marchand réactivé", 
+        delete: "Compte supprimé" 
+      };
       show(labels[confirmModal.action], "success");
       setConfirmModal(null);
       setReason("");
@@ -90,6 +94,18 @@ export default function AdminMerchantsPage() {
       (m) => m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
     );
   }, [merchants, search]);
+
+  // Fonction de formatage de date sécurisée
+  const formatDateSafe = (timestamp: number | null | undefined): string => {
+    if (!timestamp) return "Date inconnue";
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return "Date invalide";
+      return formatDate(date);
+    } catch {
+      return "Date invalide";
+    }
+  };
 
   const confirmConfig = {
     disable: {
@@ -128,7 +144,9 @@ export default function AdminMerchantsPage() {
           <p className="text-xl font-medium mt-1 tabular-nums">{merchants.length}</p>
         </div>
         <div className="card-base p-4">
-          <p className="text-xs text-ink-500 flex items-center gap-1"><Ban size={11} /> Désactivés</p>
+          <p className="text-xs text-ink-500 flex items-center gap-1">
+            <Ban size={11} /> Désactivés
+          </p>
           <p className="text-xl font-medium mt-1 tabular-nums text-danger-700">
             {merchants.filter((m) => m.disabled).length}
           </p>
@@ -169,7 +187,10 @@ export default function AdminMerchantsPage() {
                       )}
                     </div>
                     <p className="text-xs text-ink-500 truncate">{m.email}</p>
-                    <p className="text-[11px] text-ink-400 mt-0.5">Inscrit le {formatDate(m.createdAt)}</p>
+                    {/* Utilisation de formatDateSafe pour éviter l'erreur */}
+                    <p className="text-[11px] text-ink-400 mt-0.5">
+                      Inscrit le {formatDateSafe(m.createdAt)}
+                    </p>
                   </div>
                 </div>
 
@@ -222,7 +243,9 @@ export default function AdminMerchantsPage() {
                 <p className="text-sm text-ink-600">{cfg.description}</p>
                 {cfg.showReason && (
                   <div>
-                    <label className="label-base">Motif {confirmModal.action !== "delete" ? "(communiqué au marchand)" : "(interne)"}</label>
+                    <label className="label-base">
+                      Motif {confirmModal.action !== "delete" ? "(communiqué au marchand)" : "(interne)"}
+                    </label>
                     <textarea
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
@@ -233,7 +256,10 @@ export default function AdminMerchantsPage() {
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <button onClick={() => { setConfirmModal(null); setReason(""); }} className="btn-secondary flex-1">
+                  <button 
+                    onClick={() => { setConfirmModal(null); setReason(""); }} 
+                    className="btn-secondary flex-1"
+                  >
                     Annuler
                   </button>
                   <button
