@@ -6,6 +6,8 @@ import { createPaymentSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { Transaction } from "@/types";
 
+const LOG_PREFIX = "[CreatePayment]";
+
 // Délai par défaut avant expiration du lien de paiement (en jours)
 const DEFAULT_DUE_DAYS = 7;
 
@@ -51,21 +53,47 @@ function resolveCountry(
   customerPhone: string | null | undefined,
   companyCountryCode: string | undefined
 ): JoonapayCountryLike | null {
+  console.log(`${LOG_PREFIX} [resolveCountry] customerPhone="${customerPhone}" companyCountryCode="${companyCountryCode}"`);
+  console.log(`${LOG_PREFIX} [resolveCountry] Pays reçus de /misc (total=${countries.length}):`,
+    countries.map((c) => `${c.code}(indicator=${c.indicator}, enabled=${c.payment_enabled})`));
+
   const active = countries.filter((c) => c.payment_enabled);
+  console.log(`${LOG_PREFIX} [resolveCountry] Pays actifs (payment_enabled=true, total=${active.length}):`,
+    active.map((c) => `${c.code}(${c.indicator})`));
 
   if (customerPhone) {
     const phone = customerPhone.startsWith("+") ? customerPhone : `+${customerPhone}`;
+    console.log(`${LOG_PREFIX} [resolveCountry] Numéro normalisé="${phone}"`);
+
     const candidates = active
       .filter((c) => phone.startsWith(c.indicator))
       .sort((a, b) => b.indicator.length - a.indicator.length);
-    if (candidates.length > 0) return candidates[0];
+
+    console.log(`${LOG_PREFIX} [resolveCountry] Candidats matchant l'indicatif (total=${candidates.length}):`,
+      candidates.map((c) => `${c.code}(${c.indicator})`));
+
+    if (candidates.length > 0) {
+      console.log(`${LOG_PREFIX} [resolveCountry] -> Match par numéro client: ${candidates[0].code}`);
+      return candidates[0];
+    }
+
+    console.warn(`${LOG_PREFIX} [resolveCountry] Aucun pays actif ne matche l'indicatif de "${phone}" -> probablement un numéro hors zone couverte par JoonaPay (ex: +33 France, +1 USA, etc. si JoonaPay ne couvre que l'Afrique de l'Ouest)`);
+  } else {
+    console.log(`${LOG_PREFIX} [resolveCountry] Aucun customerPhone fourni -> tentative via companyCountryCode`);
   }
 
   if (companyCountryCode) {
     const byCompany = active.find((c) => c.code === companyCountryCode);
-    if (byCompany) return byCompany;
+    console.log(`${LOG_PREFIX} [resolveCountry] Recherche par companyCountryCode="${companyCountryCode}" -> trouvé=${!!byCompany}`);
+    if (byCompany) {
+      console.log(`${LOG_PREFIX} [resolveCountry] -> Match par pays de l'entreprise: ${byCompany.code}`);
+      return byCompany;
+    }
+  } else {
+    console.warn(`${LOG_PREFIX} [resolveCountry] companyCountryCode non défini sur l'entreprise`);
   }
 
+  console.error(`${LOG_PREFIX} [resolveCountry] -> ÉCHEC total: ni le numéro client ni le pays de l'entreprise ne matchent un pays actif côté JoonaPay`);
   return null;
 }
 
@@ -82,15 +110,27 @@ function resolvePaymentMethod(
   countryUuid: string,
   channel: "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER"
 ): JoonapayPaymentMethodLike | null {
+  console.log(`${LOG_PREFIX} [resolvePaymentMethod] countryUuid="${countryUuid}" channel="${channel}"`);
+
   const countryMethods = methods.filter(
     (m) => m.country.uuid === countryUuid && m.payment_status === "active"
   );
-  return countryMethods.find((m) => m.channel === channel) ?? null;
+  console.log(`${LOG_PREFIX} [resolvePaymentMethod] Méthodes actives pour ce pays (total=${countryMethods.length}):`,
+    countryMethods.map((m) => `${m.channel}(${m.name})`));
+
+  const found = countryMethods.find((m) => m.channel === channel) ?? null;
+  console.log(`${LOG_PREFIX} [resolvePaymentMethod] -> Résultat: ${found ? found.name : "AUCUNE MÉTHODE TROUVÉE"}`);
+  return found;
 }
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
+  console.log(`${LOG_PREFIX} ===> Requête reçue à ${new Date(startedAt).toISOString()}`);
+
   try {
     const raw = await req.json();
+    console.log(`${LOG_PREFIX} Payload brut reçu:`, JSON.stringify(raw));
+
     const {
       companyId,
       amount,
@@ -107,25 +147,36 @@ export async function POST(req: NextRequest) {
       channel,
     } = parseOrThrow(createPaymentSchema, raw);
 
+    console.log(`${LOG_PREFIX} Validation OK. companyId=${companyId} amount=${amount} customerPhone="${customerPhone}" channel="${channel}" uid=${uid}`);
+
     const limited = await checkRateLimit(`payment-create:uid:${uid}`, 60, 3600); // 60 liens / heure / utilisateur
+    console.log(`${LOG_PREFIX} Rate limit check -> allowed=${limited.allowed}`);
     if (!limited.allowed) {
+      console.warn(`${LOG_PREFIX} Rate limit dépassé pour uid=${uid}`);
       return NextResponse.json({ error: "Trop de liens créés récemment. Réessayez plus tard." }, { status: 429 });
     }
 
     const db = adminDb();
     const companySnap = await db.collection("companies").doc(companyId).get();
-    if (!companySnap.exists) return NextResponse.json({ error: "Entreprise introuvable" }, { status: 404 });
+    if (!companySnap.exists) {
+      console.warn(`${LOG_PREFIX} Entreprise introuvable: companyId=${companyId}`);
+      return NextResponse.json({ error: "Entreprise introuvable" }, { status: 404 });
+    }
 
     const company = companySnap.data()!;
+    console.log(`${LOG_PREFIX} Entreprise trouvée: countryCode="${company.countryCode}" kycStatus="${company.kycStatus}" suspended=${company.suspended}`);
 
     // Sécurité : seul un membre réel de l'entreprise peut créer un paiement pour elle
     if (!Array.isArray(company.members) || !company.members.includes(uid)) {
+      console.warn(`${LOG_PREFIX} Accès refusé: uid=${uid} n'est pas membre de companyId=${companyId}`);
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
     if (company.kycStatus !== "approved") {
+      console.warn(`${LOG_PREFIX} KYC non approuvé pour companyId=${companyId} (kycStatus=${company.kycStatus})`);
       return NextResponse.json({ error: "KYC non approuvé pour cette entreprise" }, { status: 403 });
     }
     if (company.suspended === true) {
+      console.warn(`${LOG_PREFIX} Entreprise suspendue: companyId=${companyId}`);
       return NextResponse.json({ error: "Cette entreprise est actuellement suspendue. Contactez le support." }, { status: 403 });
     }
 
@@ -133,15 +184,22 @@ export async function POST(req: NextRequest) {
     // disponibles. On ne passe pas de filtre `channel` ici (cf note CARD vs
     // CREDIT_CARD) : on récupère tout ce qui est payment_enabled, et on filtre
     // nous-mêmes avec les vraies valeurs d'enum de la réponse.
+    console.log(`${LOG_PREFIX} Appel JoonaPay GET /misc?payment_enabled=true`);
     const miscRes = await getJoonapayMisc({ payment_enabled: true });
     const countries: JoonapayCountryLike[] = miscRes.data?.countries ?? [];
     const paymentMethods: JoonapayPaymentMethodLike[] = miscRes.data?.payment_methods ?? [];
+
+    console.log(`${LOG_PREFIX} Réponse /misc -> ${countries.length} pays, ${paymentMethods.length} méthodes de paiement`);
+    console.log(`${LOG_PREFIX} Liste complète des pays renvoyés par JoonaPay:`, JSON.stringify(countries));
 
     // Résolution du country_uuid requis par JoonaPay — supporte tous les marchés actifs,
     // déduit en priorité depuis l'indicatif du numéro client.
     const country = resolveCountry(countries, customerPhone, company.countryCode);
 
     if (!country) {
+      console.error(`${LOG_PREFIX} ❌ ÉCHEC résolution pays. customerPhone="${customerPhone}" companyCountryCode="${company.countryCode}". ` +
+        `Cause probable: JoonaPay ne couvre que l'Afrique de l'Ouest -> aucun indicatif comme +33 (France), +1 (USA/Canada), ou autres pays européens ` +
+        `ne matchera jamais un pays dans la liste /misc ci-dessus, ce qui explique pourquoi seuls les numéros africains passent.`);
       return NextResponse.json(
         {
           error:
@@ -151,13 +209,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    console.log(`${LOG_PREFIX} Pays résolu: ${country.code} (uuid=${country.uuid}, currency=${country.currency})`);
+
     const wantsSpecificChannel = !!channel && channel !== "ANY";
+    console.log(`${LOG_PREFIX} wantsSpecificChannel=${wantsSpecificChannel} (channel demandé="${channel}")`);
 
     // Méthodes réellement actives pour ce pays, tous channels confondus —
     // utile à la fois pour le message d'erreur et pour le label affiché au marchand.
     const countryMethods = paymentMethods.filter(
       (m) => m.country.uuid === country.uuid && m.payment_status === "active"
     );
+    console.log(`${LOG_PREFIX} Méthodes actives pour ${country.code} (total=${countryMethods.length}):`,
+      countryMethods.map((m) => m.channel));
 
     let paymentMethod: JoonapayPaymentMethodLike | null = null;
 
@@ -169,6 +232,8 @@ export async function POST(req: NextRequest) {
           .map((m) => m.channel)
           .filter((v, i, a) => a.indexOf(v) === i); // dédoublonne
 
+        console.warn(`${LOG_PREFIX} Channel "${channel}" non disponible pour ${country.code}. Channels disponibles: [${availableChannels.join(", ")}]`);
+
         return NextResponse.json(
           {
             error: `Méthode de paiement "${channel}" non disponible pour ${country.code}. Méthodes disponibles : ${availableChannels.join(", ") || "aucune"}. Si CREDIT_CARD ou BANK_TRANSFER manquent, contactez le support JoonaPay pour activer ces canaux sur votre compte marchand.`,
@@ -179,6 +244,7 @@ export async function POST(req: NextRequest) {
       }
     } else if (countryMethods.length === 0) {
       // Aucune méthode active du tout pour ce pays -> on bloque avant d'appeler JoonaPay
+      console.warn(`${LOG_PREFIX} Aucune méthode active pour ${country.code} (mode ANY) -> blocage avant appel JoonaPay`);
       return NextResponse.json(
         { error: `Aucune méthode de paiement active pour ${country.code}. Contactez le support JoonaPay.` },
         { status: 400 }
@@ -187,6 +253,8 @@ export async function POST(req: NextRequest) {
     // Sinon (mode "ANY") : paymentMethod reste null, on n'envoie pas
     // payment_method_uuid à JoonaPay, et leur page de checkout affichera
     // toutes les méthodes actives pour laisser le client choisir.
+
+    console.log(`${LOG_PREFIX} paymentMethod résolu:`, paymentMethod ? `${paymentMethod.channel}(${paymentMethod.name})` : "null (mode ANY)");
 
     const dueDate = computeDueDate(DEFAULT_DUE_DAYS);
 
@@ -197,17 +265,12 @@ export async function POST(req: NextRequest) {
 
     // Enregistrement en DB (généré avant l'appel JoonaPay pour servir de merchant_transaction_id)
     const txRef = db.collection("companies").doc(companyId).collection("transactions").doc();
+    console.log(`${LOG_PREFIX} txRef.id généré: ${txRef.id}`);
 
-    // Appel au partenaire de paiement
-    // NOTE: pas de `return_url` — ce champ n'existe pas dans CreatePaymentRequest
-    // côté JoonaPay (vérifié contre le schéma officiel). Le retour client après
-    // paiement se gère via webhook_url + le payment_link affiché/partagé.
-    const joonaRes = await createJoonapayPayment({
+    const joonaPayload = {
       amount,
       currency: country.currency,
       country_uuid: country.uuid,
-      // Envoyé UNIQUEMENT si un channel précis a été demandé. En mode "ANY",
-      // ce champ est omis -> JoonaPay laisse le client choisir sa méthode.
       ...(paymentMethod ? { payment_method_uuid: paymentMethod.uuid } : {}),
       due_date: dueDate,
       description: description ?? "Paiement Verzapay",
@@ -216,9 +279,19 @@ export async function POST(req: NextRequest) {
       customer_email: customerEmail ?? undefined,
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
-    });
+    };
+    console.log(`${LOG_PREFIX} Payload envoyé à JoonaPay createPayment:`, JSON.stringify(joonaPayload));
+
+    // Appel au partenaire de paiement
+    // NOTE: pas de `return_url` — ce champ n'existe pas dans CreatePaymentRequest
+    // côté JoonaPay (vérifié contre le schéma officiel). Le retour client après
+    // paiement se gère via webhook_url + le payment_link affiché/partagé.
+    const joonaRes = await createJoonapayPayment(joonaPayload);
+
+    console.log(`${LOG_PREFIX} Réponse JoonaPay createPayment:`, JSON.stringify(joonaRes));
 
     if (!joonaRes.success) {
+      console.error(`${LOG_PREFIX} ❌ JoonaPay a renvoyé success=false`, joonaRes);
       return NextResponse.json({ error: "Erreur lors de la création du paiement" }, { status: 502 });
     }
 
@@ -255,17 +328,25 @@ export async function POST(req: NextRequest) {
       completedAt: null,
     };
     await txRef.set(tx);
+    console.log(`${LOG_PREFIX} Transaction Firestore créée: ${txRef.id} (joonapayPaymentId=${tx.joonapayPaymentId})`);
 
     // Notification push
-    await sendPushAndStore({
-      uid,
-      companyId,
-      title: "Lien de paiement créé",
-      body: paymentMethod
-        ? `Un lien de ${amount.toLocaleString()} ${country.currency} via ${paymentMethod.name} a été créé.`
-        : `Un lien de ${amount.toLocaleString()} ${country.currency} a été créé (toutes méthodes disponibles).`,
-      type: "payment",
-    });
+    try {
+      await sendPushAndStore({
+        uid,
+        companyId,
+        title: "Lien de paiement créé",
+        body: paymentMethod
+          ? `Un lien de ${amount.toLocaleString()} ${country.currency} via ${paymentMethod.name} a été créé.`
+          : `Un lien de ${amount.toLocaleString()} ${country.currency} a été créé (toutes méthodes disponibles).`,
+        type: "payment",
+      });
+      console.log(`${LOG_PREFIX} Push envoyée à uid=${uid}`);
+    } catch (pushErr) {
+      console.error(`${LOG_PREFIX} Erreur envoi push (non bloquant):`, pushErr);
+    }
+
+    console.log(`${LOG_PREFIX} ✅ Succès en ${Date.now() - startedAt}ms -> checkoutUrl=${joonaRes.data?.payment_link}`);
 
     return NextResponse.json({
       paymentId: txRef.id,
@@ -275,14 +356,19 @@ export async function POST(req: NextRequest) {
       channel: paymentMethod?.channel ?? "ANY",
     });
   } catch (err) {
-    console.error("POST /api/payments-engine/payments:", err);
+    console.error(`${LOG_PREFIX} ❌ Erreur non gérée:`, err);
     const message = err instanceof Error ? err.message : "Erreur serveur";
     const isValidationError = message.startsWith("Donnée invalide");
+    if (isValidationError) {
+      console.warn(`${LOG_PREFIX} Erreur de validation Zod/schema: ${message}`);
+    }
     return NextResponse.json(
       {
         error: isValidationError ? message : "Une erreur est survenue lors de la création du paiement",
       },
       { status: isValidationError ? 400 : 500 }
     );
+  } finally {
+    console.log(`${LOG_PREFIX} <=== Fin de traitement (durée totale: ${Date.now() - startedAt}ms)`);
   }
 }
