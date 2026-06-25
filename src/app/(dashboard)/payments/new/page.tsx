@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Copy, ExternalLink, Loader2, CheckCircle2, Smartphone, CreditCard, Landmark, Layers } from "lucide-react";
 import Link from "next/link";
 import { useCompany } from "@/lib/company-context";
@@ -12,12 +12,14 @@ import { usePreferences } from "@/lib/preferences-context";
 
 type PaymentChannel = "ANY" | "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER";
 
-const CHANNEL_OPTIONS: { value: PaymentChannel; label: string; hint: string; icon: typeof Smartphone }[] = [
-  { value: "ANY", label: "Toutes les méthodes", hint: "Le client choisit", icon: Layers },
-  { value: "MOBILE_MONEY", label: "Mobile Money", hint: "MTN, Moov...", icon: Smartphone },
-  { value: "CREDIT_CARD", label: "Carte bancaire", hint: "Visa, Mastercard", icon: CreditCard },
-  { value: "BANK_TRANSFER", label: "Virement bancaire", hint: "IBAN / RIB", icon: Landmark },
-];
+type AvailableChannel = { channel: string; name: string };
+
+// Mappe un channel JoonaPay vers son icône
+function iconForChannel(channel: string) {
+  if (channel === "CREDIT_CARD") return CreditCard;
+  if (channel === "BANK_TRANSFER") return Landmark;
+  return Smartphone;
+}
 
 export default function NewPaymentPage() {
   const { activeCompany } = useCompany();
@@ -39,7 +41,21 @@ export default function NewPaymentPage() {
   const [result, setResult] = useState<{ checkoutUrl: string; paymentId: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Méthodes réellement actives sur le compte JoonaPay du marchand pour son pays
+  const [availableChannels, setAvailableChannels] = useState<AvailableChannel[]>([]);
+  const [methodsLoading, setMethodsLoading] = useState(true);
+
   const requires2FA = appUser?.transactionTwoFactorEnabled !== false;
+
+  useEffect(() => {
+    if (!activeCompany || !user) return;
+    setMethodsLoading(true);
+    fetch(`/api/payments-engine/methods?companyId=${activeCompany.id}&uid=${user.uid}`)
+      .then((r) => r.json())
+      .then((data) => setAvailableChannels(data.methods ?? []))
+      .catch(() => setAvailableChannels([]))
+      .finally(() => setMethodsLoading(false));
+  }, [activeCompany?.id, user?.uid]);
 
   if (activeCompany?.kycStatus !== "approved") {
     return (
@@ -151,28 +167,47 @@ export default function NewPaymentPage() {
 
           <div>
             <label className="label-base">Méthode de paiement</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {CHANNEL_OPTIONS.map((opt) => {
-                const Icon = opt.icon;
-                const active = channel === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setChannel(opt.value)}
-                    className={`flex flex-col items-center gap-1 rounded-xl border py-3 px-2 text-xs font-medium transition-colors ${
-                      active
-                        ? "border-brand-700 bg-brand-50 text-brand-800"
-                        : "border-ink-200 text-ink-600 hover:bg-ink-50"
-                    }`}
-                  >
-                    <Icon size={18} />
-                    <span>{opt.label}</span>
-                    <span className="text-[10px] text-ink-400 font-normal">{opt.hint}</span>
-                  </button>
-                );
-              })}
-            </div>
+
+            {methodsLoading ? (
+              <div className="flex items-center gap-2 text-xs text-ink-400 py-3">
+                <Loader2 size={14} className="animate-spin" /> Chargement des méthodes disponibles...
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* Option "Toutes les méthodes" toujours présente */}
+                <button
+                  type="button"
+                  onClick={() => setChannel("ANY")}
+                  className={`flex flex-col items-center gap-1 rounded-xl border py-3 px-2 text-xs font-medium transition-colors ${
+                    channel === "ANY" ? "border-brand-700 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  <Layers size={18} />
+                  <span>Toutes les méthodes</span>
+                  <span className="text-[10px] text-ink-400 font-normal">Le client choisit</span>
+                </button>
+
+                {/* Méthodes réellement disponibles sur le compte JoonaPay du marchand */}
+                {availableChannels.map((m) => {
+                  const Icon = iconForChannel(m.channel);
+                  const active = channel === m.channel;
+                  return (
+                    <button
+                      key={m.channel}
+                      type="button"
+                      onClick={() => setChannel(m.channel as PaymentChannel)}
+                      className={`flex flex-col items-center gap-1 rounded-xl border py-3 px-2 text-xs font-medium transition-colors ${
+                        active ? "border-brand-700 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                      }`}
+                    >
+                      <Icon size={18} />
+                      <span>{m.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <p className="text-xs text-ink-400 mt-1.5">
               {channel === "ANY"
                 ? "Le client verra toutes les méthodes disponibles pour son pays sur la page de paiement et choisira lui-même."
