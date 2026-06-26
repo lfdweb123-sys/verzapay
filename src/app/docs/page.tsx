@@ -1,17 +1,37 @@
 "use client";
 
 import { useState, useEffect, useRef, useContext } from "react";
-import { Copy, CheckCircle2, Key, Zap, ArrowDownLeft, ArrowUpRight, Webhook, AlertTriangle, Moon, Sun } from "lucide-react";
+import {
+  Copy, CheckCircle2, Key, Zap, ArrowDownLeft, ArrowUpRight,
+  Webhook, AlertTriangle, Moon, Sun, Globe, Loader2,
+} from "lucide-react";
 import { DocsDarkContext } from "./layout";
 
 const SECTIONS = [
   { id: "introduction", label: "Introduction", icon: Zap },
   { id: "authentication", label: "Authentification", icon: Key },
+  { id: "countries", label: "Pays disponibles", icon: Globe },
   { id: "payments", label: "Créer un paiement", icon: ArrowDownLeft },
   { id: "payouts", label: "Créer un décaissement", icon: ArrowUpRight },
   { id: "webhooks", label: "Webhooks", icon: Webhook },
   { id: "errors", label: "Codes d'erreur", icon: AlertTriangle },
 ];
+
+interface PublicCountry {
+  code: string;
+  name: string;
+  indicator: string;
+  currency: string;
+  paymentEnabled: boolean;
+  transferEnabled: boolean;
+  channels: string[];
+}
+
+const CHANNEL_LABELS: Record<string, string> = {
+  MOBILE_MONEY: "Mobile Money",
+  CREDIT_CARD: "Carte bancaire",
+  BANK_TRANSFER: "Virement bancaire",
+};
 
 function CodeBlock({ code, dark }: { code: string; dark: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -53,6 +73,11 @@ export default function DocsPage() {
   const { dark, toggle } = useContext(DocsDarkContext);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
+  const [countries, setCountries] = useState<PublicCountry[]>([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
+  const [countriesError, setCountriesError] = useState<string | null>(null);
+  const [countriesUpdatedAt, setCountriesUpdatedAt] = useState<string | null>(null);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -77,6 +102,22 @@ export default function DocsPage() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/public/countries");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Erreur de chargement");
+        setCountries(data.countries ?? []);
+        setCountriesUpdatedAt(data.updatedAt ?? null);
+      } catch (err) {
+        setCountriesError((err as Error).message);
+      } finally {
+        setCountriesLoading(false);
+      }
+    })();
+  }, []);
+
   const c = {
     bg:            dark ? "#09090b" : "transparent",
     text:          dark ? "#f4f4f5" : "#1A1A19",
@@ -97,6 +138,8 @@ export default function DocsPage() {
     brandCodeBg:   dark ? "rgba(31,111,196,0.12)" : "#E6F1FB",
     inlineCode:    dark ? "#27272a" : "#F1EFE8",
     inlineCodeText:dark ? "#e4e4e7" : "#2C2C2A",
+    successText:   dark ? "#86efac" : "#15803d",
+    successBg:     dark ? "rgba(34,197,94,0.12)" : "#DCFCE7",
   };
 
   return (
@@ -120,7 +163,7 @@ export default function DocsPage() {
                 const Icon = s.icon;
                 const isActive = active === s.id;
                 return (
-                  <a
+                  
                     key={s.id}
                     href={`#${s.id}`}
                     onClick={() => setActive(s.id)}
@@ -227,6 +270,118 @@ export default function DocsPage() {
             </div>
           </section>
 
+          {/* Pays disponibles */}
+          <section id="countries">
+            <h2 className="text-xl font-medium" style={{ color: c.text }}>
+              Pays disponibles
+            </h2>
+            <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
+              Verzapay s&apos;appuie sur son réseau de partenaires de paiement pour couvrir progressivement de nouveaux marchés.
+              Cette liste reflète en temps réel les pays et méthodes de paiement réellement actifs sur la plateforme.
+            </p>
+
+            {countriesLoading ? (
+              <div className="flex items-center gap-2 mt-6 text-sm" style={{ color: c.textMuted }}>
+                <Loader2 size={15} className="animate-spin" />
+                Chargement de la liste des pays…
+              </div>
+            ) : countriesError ? (
+              <div
+                className="mt-4 rounded-lg p-3.5 text-sm"
+                style={{
+                  backgroundColor: c.warningBg,
+                  border: `1px solid ${c.warningBorder}`,
+                  color: c.warningText,
+                }}
+              >
+                {countriesError}
+              </div>
+            ) : (
+              <>
+                <div
+                  className="mt-4 overflow-hidden rounded-xl overflow-x-auto"
+                  style={{ border: `1px solid ${c.border}` }}
+                >
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ backgroundColor: c.tableHead, borderBottom: `1px solid ${c.border}` }}>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: c.textFaint }}>
+                          Pays
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: c.textFaint }}>
+                          Indicatif
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: c.textFaint }}>
+                          Devise
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: c.textFaint }}>
+                          Méthodes de paiement
+                        </th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: c.textFaint }}>
+                          Décaissement
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {countries.map((country, i) => (
+                        <tr
+                          key={country.code}
+                          style={{
+                            borderBottom: i < countries.length - 1 ? `1px solid ${c.borderFaint}` : "none",
+                          }}
+                        >
+                          <td className="px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: c.text }}>
+                            {country.name}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono whitespace-nowrap" style={{ color: c.textMuted }}>
+                            {country.indicator}
+                          </td>
+                          <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: c.textMuted }}>
+                            {country.currency}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex flex-wrap gap-1.5">
+                              {country.channels.length > 0 ? (
+                                country.channels.map((ch) => (
+                                  <span
+                                    key={ch}
+                                    className="text-xs font-mono px-2 py-0.5 rounded shrink-0 whitespace-nowrap"
+                                    style={{ backgroundColor: c.brandCodeBg, color: c.brandCode }}
+                                  >
+                                    {CHANNEL_LABELS[ch] ?? ch}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs" style={{ color: c.textFaint }}>—</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 whitespace-nowrap">
+                            {country.transferEnabled ? (
+                              <span
+                                className="text-xs font-medium px-2 py-0.5 rounded"
+                                style={{ backgroundColor: c.successBg, color: c.successText }}
+                              >
+                                Disponible
+                              </span>
+                            ) : (
+                              <span className="text-xs" style={{ color: c.textFaint }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {countriesUpdatedAt && (
+                  <p className="text-xs mt-3" style={{ color: c.textFaint }}>
+                    Dernière synchronisation : {new Date(countriesUpdatedAt).toLocaleString("fr-FR")}
+                  </p>
+                )}
+              </>
+            )}
+          </section>
+
           {/* Paiements */}
           <section id="payments">
             <h2 className="text-xl font-medium" style={{ color: c.text }}>
@@ -234,6 +389,8 @@ export default function DocsPage() {
             </h2>
             <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
               Génère un lien de paiement que votre client peut utiliser pour régler par Mobile Money ou carte bancaire.
+              Le pays est déduit automatiquement à partir du numéro de téléphone du client — voir{" "}
+              <a href="#countries" style={{ color: c.brandCode }}>la liste des pays disponibles</a>.
             </p>
             <div className="flex items-center gap-2 mt-4 mb-1">
               <span
@@ -274,7 +431,8 @@ export default function DocsPage() {
               Créer un décaissement
             </h2>
             <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
-              Envoie des fonds depuis votre solde Verzapay vers un compte Mobile Money.
+              Envoie des fonds depuis votre solde Verzapay vers un compte Mobile Money. Disponible uniquement
+              pour les pays marqués <strong style={{ color: c.text }}>Disponible</strong> dans la colonne Décaissement ci-dessus.
             </p>
             <div className="flex items-center gap-2 mt-4 mb-1">
               <span
@@ -306,6 +464,18 @@ export default function DocsPage() {
             <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
               Configurez une URL de webhook depuis votre espace Développeur pour recevoir des notifications en temps réel à chaque événement.
             </p>
+            <div
+              className="mt-4 rounded-lg p-3.5 text-sm"
+              style={{
+                backgroundColor: c.warningBg,
+                border: `1px solid ${c.warningBorder}`,
+                color: c.warningText,
+              }}
+            >
+              Votre URL de webhook doit impérativement commencer par <code className="font-mono">https://</code>.
+              Une URL en <code className="font-mono">http://</code> entraîne une redirection que certains de nos
+              partenaires ne suivent pas, ce qui empêche la notification d&apos;arriver.
+            </div>
             <div className="space-y-1.5 mt-4">
               {[
                 { event: "payment.completed", desc: "Paiement reçu avec succès" },
