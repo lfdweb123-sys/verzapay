@@ -17,6 +17,11 @@ const SECTIONS = [
   { id: "errors", label: "Codes d'erreur", icon: AlertTriangle },
 ];
 
+// URL de base de l'API, dérivée de la variable d'environnement publique au
+// lieu d'une chaîne en dur — reste correcte automatiquement en preview/staging.
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://verzapay.com";
+const API_BASE_URL = `${APP_BASE_URL}/api/v1`;
+
 interface PublicCountry {
   code: string;
   name: string;
@@ -163,7 +168,7 @@ export default function DocsPage() {
                 const Icon = s.icon;
                 const isActive = active === s.id;
                 return (
-                  
+                  <a
                     key={s.id}
                     href={`#${s.id}`}
                     onClick={() => setActive(s.id)}
@@ -236,7 +241,7 @@ export default function DocsPage() {
               <p className="text-sm" style={{ color: c.textMuted }}>
                 <strong style={{ color: c.text }}>URL de base :</strong>{" "}
                 <code className="font-mono" style={{ color: "#378ADD" }}>
-                  https://verzapay.com/api/v1
+                  {API_BASE_URL}
                 </code>
               </p>
             </div>
@@ -403,7 +408,7 @@ export default function DocsPage() {
                 /payments
               </code>
             </div>
-            <CodeBlock dark={dark} code={`curl -X POST https://verzapay.com/api/v1/payments \\
+            <CodeBlock dark={dark} code={`curl -X POST ${API_BASE_URL}/payments \\
   -H "Authorization: Bearer vpz_sk_votre_cle" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -421,7 +426,7 @@ export default function DocsPage() {
   "status": "pending",
   "amount": 25000,
   "currency": "XOF",
-  "checkout_url": "https://verzapay.com/pay/8f3a9b2c"
+  "checkout_url": "${APP_BASE_URL}/pay/8f3a9b2c"
 }`} />
           </section>
 
@@ -445,7 +450,7 @@ export default function DocsPage() {
                 /payouts
               </code>
             </div>
-            <CodeBlock dark={dark} code={`curl -X POST https://verzapay.com/api/v1/payouts \\
+            <CodeBlock dark={dark} code={`curl -X POST ${API_BASE_URL}/payouts \\
   -H "Authorization: Bearer vpz_sk_votre_cle" \\
   -H "Content-Type: application/json" \\
   -d '{
