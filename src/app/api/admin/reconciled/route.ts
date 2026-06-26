@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { requireAdmin } from "@/lib/require-admin";
 
 const LOG_PREFIX = "[AdminReconciled]";
-
-// ⚠️ ADAPTE CETTE VÉRIFICATION pour qu'elle corresponde exactement à celle
-// utilisée dans /api/admin/stats (je n'ai pas vu ce fichier). Remplace ce bloc
-// par ton import existant si tu as déjà un helper du type `requireAdmin(uid)`.
-async function isAdminUid(uid: string | null): Promise<boolean> {
-  if (!uid) return false;
-  const db = adminDb();
-  const userSnap = await db.collection("users").doc(uid).get();
-  return userSnap.exists && userSnap.data()?.role === "admin";
-}
 
 export async function GET(req: NextRequest) {
   try {
     const uid = req.nextUrl.searchParams.get("uid");
-    if (!(await isAdminUid(uid))) {
-      console.warn(`${LOG_PREFIX} Accès refusé pour uid=${uid}`);
+    if (!(await requireAdmin(uid))) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
@@ -28,18 +18,37 @@ export async function GET(req: NextRequest) {
     console.log(`${LOG_PREFIX} Recherche des transactions réconciliées manuellement depuis ${new Date(cutoff).toISOString()}`);
 
     const db = adminDb();
-    const snap = await db
-      .collectionGroup("transactions")
-      .where("reconciledManually", "==", true)
-      .where("completedAt", ">=", cutoff)
-      .orderBy("completedAt", "desc")
-      .limit(200)
-      .get();
 
-    console.log(`${LOG_PREFIX} ${snap.size} transaction(s) réconciliée(s) trouvée(s)`);
+    // Même pattern que /api/admin/stats : on évite le where composite sur
+    // collectionGroup (qui demanderait un index dédié) en filtrant en mémoire
+    // après un orderBy simple, limité à 5000 docs.
+    let txSnap;
+    try {
+      txSnap = await db
+        .collectionGroup("transactions")
+        .orderBy("completedAt", "desc")
+        .limit(5000)
+        .get();
+    } catch (indexErr) {
+      console.error(`${LOG_PREFIX} Index collectionGroup manquant:`, indexErr);
+      return NextResponse.json({
+        items: [],
+        count: 0,
+        totalAmount: 0,
+        days,
+        warning: "Index collectionGroup manquant — créez-le dans la console Firebase",
+      });
+    }
+
+    const filtered = txSnap.docs.filter((d) => {
+      const tx = d.data();
+      return tx.reconciledManually === true && (tx.completedAt ?? 0) >= cutoff;
+    });
+
+    console.log(`${LOG_PREFIX} ${filtered.length} transaction(s) réconciliée(s) trouvée(s) sur ${txSnap.size} scannées`);
 
     // On récupère les noms d'entreprise en une passe pour éviter N+1 lectures répétées
-    const companyIds = [...new Set(snap.docs.map((d) => d.data().companyId).filter(Boolean))];
+    const companyIds = [...new Set(filtered.map((d) => d.data().companyId).filter(Boolean))];
     const companyNames: Record<string, string> = {};
 
     await Promise.all(
@@ -49,7 +58,7 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    const items = snap.docs.map((doc) => {
+    const items = filtered.map((doc) => {
       const tx = doc.data();
       return {
         id: doc.id,
@@ -79,6 +88,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error(`${LOG_PREFIX} Erreur:`, err);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Erreur inconnue";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
