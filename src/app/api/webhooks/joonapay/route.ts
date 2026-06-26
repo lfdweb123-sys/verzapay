@@ -26,6 +26,57 @@ function verifyWebhookSignature(rawBody: string, signatureHeader: string | null,
   }
 }
 
+/**
+ * Relaie un événement vers l'URL webhook propre AU MARCHAND CONCERNÉ par
+ * cette transaction/ce décaissement précis — jamais en boucle sur d'autres
+ * entreprises. On lit `companies/{companyId}.webhookUrl` pour CE companyId
+ * uniquement ; si ce marchand n'a pas configuré d'URL (et qu'aucun
+ * urlOverride n'est fourni), on ne fait rien et on ne touche à aucun autre
+ * compte. Chaque appel correspond à un seul marchand et un seul événement.
+ *
+ * urlOverride : URL ponctuelle fournie par le marchand au moment de la
+ * création via /api/v1/payments (champ webhook_url du body). Si présente,
+ * elle prime sur company.webhookUrl pour CETTE notification précise — utile
+ * pour un marchand qui route différents paiements vers différents endpoints
+ * (ex: multi-boutiques) sans changer son URL globale.
+ */
+async function notifyMerchantWebhook(
+  companyId: string,
+  payload: Record<string, unknown>,
+  urlOverride?: string
+) {
+  try {
+    const db = adminDb();
+    let webhookUrl: string | null | undefined = urlOverride;
+
+    if (!webhookUrl) {
+      const companySnap = await db.collection("companies").doc(companyId).get();
+      webhookUrl = companySnap.data()?.webhookUrl;
+    }
+
+    if (!webhookUrl) {
+      console.log(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> pas d'URL configurée, rien à envoyer`);
+      return;
+    }
+
+    console.log(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> POST ${webhookUrl}`);
+
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000), // timeout 5s pour ne jamais bloquer le traitement du webhook JoonaPay
+    });
+
+    console.log(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> réponse status=${res.status}`);
+  } catch (err) {
+    // On logue mais on n'échoue jamais le traitement principal à cause d'un
+    // webhook marchand indisponible — c'est le problème du marchand, pas de
+    // JoonaPay/Verzapay, et ça ne doit pas faire échouer l'ack vers JoonaPay.
+    console.error(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> échec de livraison:`, err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const startedAt = Date.now();
   console.log(`${LOG_PREFIX} ===> Requête reçue à ${new Date(startedAt).toISOString()}`);
@@ -177,9 +228,45 @@ export async function POST(req: NextRequest) {
             }
           }
         }
+
+        // Relais vers le site du marchand — UNIQUEMENT pour ce companyId,
+        // jamais vers d'autres marchands. webhookUrlOverride (fourni à la
+        // création via /api/v1/payments pour CETTE transaction précise)
+        // prime sur company.webhookUrl s'il est présent.
+        await notifyMerchantWebhookSafe(
+          companyId,
+          {
+            type: "payment.completed",
+            paymentId: txDoc.id,
+            merchantReference: tx.merchantReference ?? null,
+            amount: tx.amount,
+            currency: tx.currency,
+            status: "completed",
+            customerName: tx.customerName ?? null,
+            customerPhone: tx.customerPhone ?? null,
+            companyId,
+          },
+          tx.webhookUrlOverride ?? undefined
+        );
       } else if (isFailed) {
         console.log(`${LOG_PREFIX} [payment] Paiement FAILED -> marquage transaction failed`);
         await txDoc.ref.update({ status: "failed" });
+
+        await notifyMerchantWebhookSafe(
+          companyId,
+          {
+            type: "payment.failed",
+            paymentId: txDoc.id,
+            merchantReference: tx.merchantReference ?? null,
+            amount: tx.amount,
+            currency: tx.currency,
+            status: "failed",
+            customerName: tx.customerName ?? null,
+            customerPhone: tx.customerPhone ?? null,
+            companyId,
+          },
+          tx.webhookUrlOverride ?? undefined
+        );
       } else {
         console.warn(`${LOG_PREFIX} [payment] status="${status}" non reconnu (ni SUCCESS ni FAILED) -> aucune action`);
       }
@@ -224,8 +311,9 @@ export async function POST(req: NextRequest) {
       if (!poQuery.empty) {
         const poDoc = poQuery.docs[0];
         const po = poDoc.data();
+        const companyId: string = po.companyId;
 
-        console.log(`${LOG_PREFIX} [payout] poDoc.id=${poDoc.id} companyId=${po.companyId} statutActuel=${po.status} amount=${po.amount}`);
+        console.log(`${LOG_PREFIX} [payout] poDoc.id=${poDoc.id} companyId=${companyId} statutActuel=${po.status} amount=${po.amount}`);
 
         // Idempotence : si déjà marqué dans un statut final, ne pas retraiter
         // (et surtout ne pas recréditer une deuxième fois).
@@ -255,14 +343,14 @@ export async function POST(req: NextRequest) {
         // Si tout ou partie du groupe échoue, il faut recréditer le marchand
         // au prorata des transferts qui n'ont pas atteint leur bénéficiaire —
         // sinon cet argent disparaît sans jamais être ni envoyé, ni rendu.
+        let refundAmount = 0;
         if (newStatus === "failed" || newStatus === "partially_completed") {
-          const companyId: string = po.companyId;
           const totalAmount: number = po.amount;
 
           // Remboursement proportionnel à la part échouée du groupe.
           // Si total_payouts n'est pas disponible/cohérent, on rembourse tout
           // par sécurité plutôt que de risquer de ne pas rembourser assez.
-          const refundAmount = newStatus === "failed"
+          refundAmount = newStatus === "failed"
             ? totalAmount
             : totalPayoutsCount > 0
               ? Math.round((failedPayoutsCount / totalPayoutsCount) * totalAmount)
@@ -297,6 +385,20 @@ export async function POST(req: NextRequest) {
             console.log(`${LOG_PREFIX} [payout] refundAmount=0 -> pas de remboursement à effectuer`);
           }
         }
+
+        // Relais vers le site du marchand — UNIQUEMENT pour ce companyId.
+        await notifyMerchantWebhookSafe(companyId, {
+          type: newStatus === "completed" ? "payout.completed" : "payout.failed",
+          payoutId: poDoc.id,
+          merchantReference: po.merchantReference ?? null,
+          amount: po.amount,
+          currency: po.currency,
+          status: newStatus,
+          refundAmount: refundAmount || undefined,
+          recipientPhone: po.recipientPhone ?? null,
+          recipientName: po.recipientName ?? null,
+          companyId,
+        });
       } else {
         console.warn(`${LOG_PREFIX} [payout] Aucun document payout trouvé pour joonapayPayoutId=${payoutGroupUuid}`);
       }
@@ -313,5 +415,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   } finally {
     console.log(`${LOG_PREFIX} <=== Fin de traitement (durée totale: ${Date.now() - startedAt}ms)`);
+  }
+}
+
+// Wrapper pratique : avale toute erreur pour ne jamais remonter jusqu'au
+// try/catch principal (le relais marchand ne doit JAMAIS faire échouer
+// l'accusé de réception envoyé à JoonaPay).
+async function notifyMerchantWebhookSafe(
+  companyId: string,
+  payload: Record<string, unknown>,
+  urlOverride?: string
+) {
+  try {
+    await notifyMerchantWebhook(companyId, payload, urlOverride);
+  } catch (err) {
+    console.error(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> erreur inattendue:`, err);
   }
 }

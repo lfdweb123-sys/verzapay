@@ -1,8 +1,8 @@
 export type KycStatus = "not_started" | "awaiting_submission" | "pending" | "review" | "approved" | "rejected";
 
-// ← AJOUTÉ "bank_transfer" : nécessaire pour distinguer les paiements par
-// virement bancaire de ceux par carte une fois CREDIT_CARD/BANK_TRANSFER
-// activés côté JoonaPay. "wave" est laissé tel quel, inchangé.
+// "bank_transfer" : nécessaire pour distinguer les paiements par virement
+// bancaire de ceux par carte une fois CREDIT_CARD/BANK_TRANSFER activés côté
+// JoonaPay. "wave" est laissé tel quel, inchangé.
 export type PaymentMethod = "mobile_money" | "card" | "bank_transfer" | "wave";
 
 export type TransactionStatus =
@@ -51,10 +51,19 @@ export interface Company {
   joonapayClientKey?: string | null; // chiffré côté serveur uniquement, jamais exposé tel quel au client
   joonapayConfigured?: boolean;
   apiKeyPublic?: string; // identifiant public, toujours visible (ex: vpz_pk_xxx)
-  apiKeySecretHash?: string; // hash bcrypt de la clé secrète, jamais la valeur en clair
+  apiKeySecretHash?: string; // hash scrypt salé de la clé secrète (lib/crypto-utils.ts), jamais la valeur en clair
+  // Hash SHA-256 déterministe (non salé) de la clé secrète, utilisé UNIQUEMENT
+  // pour la recherche Firestore dans /api/v1/* (cf lib/api-auth.ts). Ne sert
+  // jamais seul à authentifier — toujours revérifié contre apiKeySecretHash.
+  apiKeySecretLookupHash?: string;
   apiKeySecretGenerated?: boolean; // true dès qu'une clé secrète a été générée au moins une fois
   apiKeySecretLastFour?: string; // 4 derniers caractères, pour affichage type "vpz_sk_...a93f"
   apiKeySecretCreatedAt?: number | null;
+  // URL configurée par le marchand pour recevoir les notifications d'événements
+  // (paiement reçu/échoué, décaissement effectué/échoué). Verzapay reste
+  // toujours l'unique destinataire des webhooks JoonaPay ; cette URL n'est
+  // appelée qu'en relais, après traitement et vérification de signature.
+  webhookUrl?: string | null;
   logoColor?: string; // couleur générée pour l'avatar
   walletBalance: number; // solde net disponible pour ce marchand (ledger interne)
   suspended?: boolean; // si true, paiements/retraits bloqués côté serveur (désactivé par l'admin)

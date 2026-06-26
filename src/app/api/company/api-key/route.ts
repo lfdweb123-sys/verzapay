@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { hashSecret, generateApiSecretKey, generateApiPublicKey } from "@/lib/crypto-utils";
+import { hashSecret, hashLookup, generateApiSecretKey, generateApiPublicKey } from "@/lib/crypto-utils";
 import { generateApiKeySchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -27,11 +27,16 @@ export async function POST(req: NextRequest) {
     const secretKey = generateApiSecretKey();
     const publicKey = company.apiKeyPublic || generateApiPublicKey();
     const secretHash = hashSecret(secretKey);
+    // Hash de recherche déterministe (non salé) — sert uniquement à localiser
+    // ce document via une requête Firestore indexée dans /api/v1/*. La preuve
+    // d'authenticité reste apiKeySecretHash (scrypt salé), vérifié séparément.
+    const secretLookupHash = hashLookup(secretKey);
     const lastFour = secretKey.slice(-4);
 
     await companyRef.update({
       apiKeyPublic: publicKey,
       apiKeySecretHash: secretHash,
+      apiKeySecretLookupHash: secretLookupHash,
       apiKeySecretGenerated: true,
       apiKeySecretLastFour: lastFour,
       apiKeySecretCreatedAt: Date.now(),
