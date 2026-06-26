@@ -130,6 +130,10 @@ export default function AdminDashboardPage() {
           <span className="text-sm font-medium text-ink-900">Voir toutes les transactions</span>
           <ArrowRight size={15} className="text-ink-400" />
         </Link>
+         <Link href="/admin/reconciled" className="card-base p-4 flex items-center justify-between hover:border-brand-300 transition-colors">
+          <span className="text-sm font-medium text-ink-900">Paiements débloqués automatiquement</span>
+          <ArrowRight size={15} className="text-ink-400" />
+        </Link>
       </div>
     </div>
   );
