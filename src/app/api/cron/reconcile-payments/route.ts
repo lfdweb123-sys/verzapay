@@ -8,13 +8,8 @@ import { FieldValue } from "firebase-admin/firestore";
 
 const LOG_PREFIX = "[ReconcilePayments]";
 
-// Ne retraiter que les transactions "pending" depuis au moins ce délai,
-// pour laisser le temps au webhook normal d'arriver avant de dupliquer le travail.
-const MIN_AGE_MS = 3 * 60 * 1000; // 3 minutes
-
-// Pour éviter de scanner indéfiniment les vieilles transactions bloquées
-// (ex: liens de paiement jamais payés), on limite la fenêtre de recherche.
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
+const MIN_AGE_MS = 3 * 60 * 1000;
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_RECONCILE_SECRET;
@@ -22,11 +17,87 @@ function isAuthorized(req: NextRequest): boolean {
     console.error(`${LOG_PREFIX} CRON_RECONCILE_SECRET manquant dans les variables d'environnement`);
     return false;
   }
-  // cron-job.org permet d'ajouter soit un header custom, soit un query param.
-  // On accepte les deux pour flexibilité.
   const headerSecret = req.headers.get("x-cron-secret");
   const querySecret = req.nextUrl.searchParams.get("secret");
   return headerSecret === secret || querySecret === secret;
+}
+
+async function notifyMerchantWebhook(
+  companyId: string,
+  payload: Record<string, unknown>,
+  urlOverride?: string
+) {
+  const db = adminDb();
+  try {
+    let webhookUrl: string | null | undefined = urlOverride;
+
+    if (!webhookUrl) {
+      const companySnap = await db.collection("companies").doc(companyId).get();
+      webhookUrl = companySnap.data()?.webhookUrl;
+    }
+
+    if (!webhookUrl) {
+      console.log(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> pas d'URL configurée`);
+      return;
+    }
+
+    console.log(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> POST ${webhookUrl}`);
+
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    console.log(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> réponse status=${res.status}`);
+
+    // ── Log ──────────────────────────────────────────────────────────────
+    try {
+      await db.collection("companies").doc(companyId).collection("webhookLogs").add({
+        type: payload.type ?? null,
+        paymentId: payload.paymentId ?? payload.payoutId ?? null,
+        amount: payload.amount ?? null,
+        status: payload.status ?? null,
+        sentAt: Date.now(),
+        responseStatus: res.status,
+        success: res.ok,
+        payload,
+      });
+    } catch (logErr) {
+      console.error(`${LOG_PREFIX} [merchant-webhook] Erreur écriture webhookLog:`, logErr);
+    }
+
+  } catch (err) {
+    console.error(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> échec livraison:`, err);
+
+    try {
+      await db.collection("companies").doc(companyId).collection("webhookLogs").add({
+        type: payload.type ?? null,
+        paymentId: payload.paymentId ?? payload.payoutId ?? null,
+        amount: payload.amount ?? null,
+        status: payload.status ?? null,
+        sentAt: Date.now(),
+        responseStatus: null,
+        success: false,
+        payload,
+      });
+    } catch (logErr) {
+      console.error(`${LOG_PREFIX} [merchant-webhook] Erreur écriture webhookLog (catch):`, logErr);
+    }
+  }
+}
+
+async function notifyMerchantWebhookSafe(
+  companyId: string,
+  payload: Record<string, unknown>,
+  urlOverride?: string
+) {
+  try {
+    await notifyMerchantWebhook(companyId, payload, urlOverride);
+  } catch (err) {
+    console.error(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> erreur inattendue:`, err);
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -46,7 +117,6 @@ export async function GET(req: NextRequest) {
 
     console.log(`${LOG_PREFIX} Recherche des transactions pending entre ${new Date(cutoffOld).toISOString()} et ${new Date(cutoffRecent).toISOString()}`);
 
-    // collectionGroup pour scanner companies/*/transactions sans connaître companyId à l'avance
     const pendingSnap = await db
       .collectionGroup("transactions")
       .where("status", "==", "pending")
@@ -73,7 +143,7 @@ export async function GET(req: NextRequest) {
       console.log(`${LOG_PREFIX} --- Vérification tx=${txDoc.id} companyId=${companyId} joonapayPaymentId=${joonapayPaymentId}`);
 
       if (!joonapayPaymentId) {
-        console.warn(`${LOG_PREFIX} tx=${txDoc.id} n'a pas de joonapayPaymentId -> impossible de vérifier, skip`);
+        console.warn(`${LOG_PREFIX} tx=${txDoc.id} n'a pas de joonapayPaymentId -> skip`);
         results.skippedNoJoonapayId++;
         continue;
       }
@@ -88,11 +158,10 @@ export async function GET(req: NextRequest) {
           continue;
         }
 
-        const remoteStatus = paymentRes.data?.status; // "NEW" | "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED" | "EXPIRED"
+        const remoteStatus = paymentRes.data?.status;
         console.log(`${LOG_PREFIX} tx=${txDoc.id} -> statut JoonaPay distant = "${remoteStatus}"`);
 
-        // Re-vérification idempotence juste avant d'écrire (au cas où le webhook
-        // serait arrivé entre le moment de la query et maintenant).
+        // Idempotence — re-lecture juste avant l'écriture
         const freshSnap = await txDoc.ref.get();
         const freshTx = freshSnap.data();
         if (freshTx?.status !== "pending") {
@@ -101,7 +170,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (remoteStatus === "SUCCESS") {
-          console.log(`${LOG_PREFIX} tx=${txDoc.id} -> SUCCESS confirmé, application du crédit (logique identique au webhook)`);
+          console.log(`${LOG_PREFIX} tx=${txDoc.id} -> SUCCESS confirmé, application du crédit`);
 
           await txDoc.ref.update({
             status: "completed",
@@ -122,11 +191,29 @@ export async function GET(req: NextRequest) {
             amount: netAmount,
             balanceAfter: newBalance,
             reference: joonapayPaymentId,
-            label: `Paiement reçu (réconciliation manuelle) — ${tx.customerName ?? tx.customerPhone ?? "client"}`,
+            label: `Paiement reçu (réconciliation) — ${tx.customerName ?? tx.customerPhone ?? "client"}`,
             createdAt: Date.now(),
           });
 
           console.log(`${LOG_PREFIX} tx=${txDoc.id} -> wallet companyId=${companyId} crédité de ${netAmount}, nouveau solde=${newBalance}`);
+
+          // Notification marchand webhook
+          await notifyMerchantWebhookSafe(
+            companyId,
+            {
+              type: "payment.completed",
+              paymentId: txDoc.id,
+              merchantReference: tx.merchantReference ?? null,
+              amount: tx.amount,
+              currency: tx.currency,
+              status: "completed",
+              customerName: tx.customerName ?? null,
+              customerPhone: tx.customerPhone ?? null,
+              companyId,
+              reconciledManually: true,
+            },
+            tx.webhookUrlOverride ?? undefined
+          );
 
           const companySnap = await db.collection("companies").doc(companyId).get();
           const ownerUid: string = companySnap.data()?.ownerUid;
@@ -168,13 +255,35 @@ export async function GET(req: NextRequest) {
           }
 
           results.updatedToCompleted++;
+
         } else if (remoteStatus === "FAILED" || remoteStatus === "CANCELLED" || remoteStatus === "EXPIRED") {
           console.log(`${LOG_PREFIX} tx=${txDoc.id} -> statut distant "${remoteStatus}" -> marquage failed`);
+
           await txDoc.ref.update({
             status: "failed",
             reconciledManually: true,
           });
+
+          // Notification marchand webhook
+          await notifyMerchantWebhookSafe(
+            companyId,
+            {
+              type: "payment.failed",
+              paymentId: txDoc.id,
+              merchantReference: tx.merchantReference ?? null,
+              amount: tx.amount,
+              currency: tx.currency,
+              status: "failed",
+              customerName: tx.customerName ?? null,
+              customerPhone: tx.customerPhone ?? null,
+              companyId,
+              reconciledManually: true,
+            },
+            tx.webhookUrlOverride ?? undefined
+          );
+
           results.updatedToFailed++;
+
         } else {
           console.log(`${LOG_PREFIX} tx=${txDoc.id} -> toujours en attente côté JoonaPay (status="${remoteStatus}") -> rien à faire`);
           results.stillPending++;
