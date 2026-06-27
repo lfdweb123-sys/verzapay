@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   console.log("🚀 [KYC SESSION] Création d'une session KYC");
-  
+
   try {
     const { companyId, uid, email, displayName } = await req.json();
     console.log(`📊 [KYC SESSION] companyId: ${companyId}, uid: ${uid}, email: ${email}`);
@@ -31,11 +31,38 @@ export async function POST(req: NextRequest) {
 
     const company = companySnap.data()!;
     console.log(`📊 [KYC SESSION] Entreprise: ${company.name}`);
-    
+
     // Vérif que l'utilisateur est bien membre
     if (!company.members?.includes(uid)) {
       console.log("❌ [KYC SESSION] Accès refusé - utilisateur non membre");
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    }
+
+    // 🔥 NETTOYAGE : un marchand ne doit jamais avoir plusieurs sessions KYC
+    // "en attente" actives simultanément. Avant de créer la nouvelle session,
+    // on marque tous les anciens mappings non résolus (session_created /
+    // documents_submitted) de CE companyId comme "abandoned" — ça évite que
+    // le webhook /api/webhooks/verifypro se retrouve plus tard avec plusieurs
+    // candidats "non résolus" ambigus pour différents marchands en même temps,
+    // qui forçait jusqu'ici à abandonner la résolution par sécurité. Une
+    // nouvelle tentative du même marchand remplace toujours l'ancienne, elle
+    // ne s'accumule jamais avec elle.
+    console.log(`🧹 [KYC SESSION] Nettoyage des anciens mappings non résolus pour companyId=${companyId}...`);
+    const staleMappings = await db
+      .collection("kyc_mappings")
+      .where("companyId", "==", companyId)
+      .where("status", "in", ["session_created", "documents_submitted"])
+      .get();
+
+    if (!staleMappings.empty) {
+      const batch = db.batch();
+      staleMappings.docs.forEach((doc) => {
+        batch.update(doc.ref, { status: "abandoned", abandonedAt: Date.now() });
+      });
+      await batch.commit();
+      console.log(`✅ [KYC SESSION] ${staleMappings.size} ancien(s) mapping(s) marqué(s) abandoned`);
+    } else {
+      console.log(`📊 [KYC SESSION] Aucun ancien mapping à nettoyer`);
     }
 
     // Créer la session VerifyPro
@@ -90,7 +117,7 @@ export async function POST(req: NextRequest) {
       verificationUrl: session.verificationUrl,
       expiresAt: session.expiresAt,
     });
-    
+
   } catch (err) {
     console.error("❌ [KYC SESSION] Erreur:", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
