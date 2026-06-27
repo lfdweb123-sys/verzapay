@@ -13,6 +13,19 @@ const base64Image = z
   .optional()
   .nullable();
 
+// Document RCCM (PDF uniquement) en base64. Limite à ~500 Ko en base64
+// (≈ 370 Ko de PDF réel après décodage) : un RCCM scanné correctement
+// compressé tient largement dans cette limite, ce qui évite de stocker des
+// documents lourds directement dans un champ Firestore (limite de 1 Mo par
+// document Firestore tous champs confondus — il faut garder de la marge
+// pour le reste de legalInfo et de Company).
+const base64Pdf = z
+  .string()
+  .regex(/^data:application\/pdf;base64,/, "Le fichier doit être un PDF")
+  .max(500_000, "Le PDF est trop lourd (max ~370 Ko). Compressez-le avant l'envoi.")
+  .optional()
+  .nullable();
+
 // ─── Auth / 2FA ─────────────────────────────────────────────────────────────
 export const twoFactorSendSchema = z.object({
   uid,
@@ -68,6 +81,11 @@ export const createCompanySchema = z.object({
   country: z.string().length(2),
 });
 
+// Infos légales : tous les champs restent optionnels. C'est volontaire et
+// structurel — un marchand "particulier" soumet ce formulaire vide (ou ne
+// le soumet jamais), un marchand "entreprise" le remplit. L'absence de
+// ifuNumber/rccmNumber est ce qui permet de distinguer les deux profils
+// sans champ booléen dédié (cf Company.legalInfo dans types/index.ts).
 export const companyLegalInfoSchema = z.object({
   ifuNumber: shortText(50),
   rccmNumber: shortText(80),
@@ -76,6 +94,7 @@ export const companyLegalInfoSchema = z.object({
   ownerFullName: shortText(150),
   address: shortText(300),
   activityDescription: shortText(500),
+  rccmDocumentBase64: base64Pdf,
 });
 
 // ─── Clé API ────────────────────────────────────────────────────────────────

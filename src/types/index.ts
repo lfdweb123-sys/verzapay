@@ -32,6 +32,38 @@ export interface AppUser {
   pendingEmailRequestedAt?: number | null;
 }
 
+/**
+ * Données extraites automatiquement par VerifyPro lors de
+ * verification.manual_review / verification.completed (OCR + face match +
+ * AML). Remplies UNIQUEMENT par le webhook /api/webhooks/verifypro, jamais
+ * saisies manuellement par le marchand — ce sont des données d'identité
+ * vérifiées par le prestataire KYC, pas des déclarations spontanées.
+ * Tous les champs sont optionnels : un même Company peut avoir 0, 1 ou
+ * plusieurs cycles KYC dans le temps, et certains événements n'apportent
+ * que des sous-ensembles (ex: faceMatch sans amlResult selon le flux).
+ */
+export interface KycExtractedData {
+  firstName?: string | null;
+  lastName?: string | null;
+  birthDate?: string | null; // format tel que reçu du prestataire, ex: "30/09/1988"
+  docNumber?: string | null;
+  expiryDate?: string | null;
+  nationality?: string | null; // code ISO 3166-1 alpha-3, ex: "TGO"
+  address?: string | null;
+  documentExpired?: boolean | null;
+  tamperingDetected?: boolean | null; // falsification détectée sur le document
+  confidenceScore?: number | null; // score de confiance OCR, 0 à 1
+  documentType?: string | null; // ex: "national_id"
+  overallScore?: number | null; // score global de vérification (0-100)
+  faceMatchScore?: number | null; // similarityScore du face match, 0 à 1
+  faceMatchLivenessConfirmed?: boolean | null;
+  faceMatchNeedsManualReview?: boolean | null;
+  amlSanctionsMatch?: boolean | null;
+  amlPepMatch?: boolean | null;
+  amlRiskScore?: number | null;
+  extractedAt?: number | null; // Date.now() au moment où le webhook a traité l'événement
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -47,6 +79,11 @@ export interface Company {
   kycSessionId?: string | null;
   kycRiskLevel?: "low" | "medium" | "high" | null;
   kycReviewedAt?: number | null;
+  // Données d'identité extraites automatiquement par le webhook KYC — voir
+  // KycExtractedData ci-dessus. Présentes dès le premier événement
+  // verification.manual_review ou verification.completed reçu pour cette
+  // entreprise ; null/absent tant qu'aucune vérification n'a abouti.
+  kycExtractedData?: KycExtractedData | null;
   commissionRate: number; // ex 0.015 = 1.5%
   joonapayClientKey?: string | null; // chiffré côté serveur uniquement, jamais exposé tel quel au client
   joonapayConfigured?: boolean;
@@ -70,7 +107,10 @@ export interface Company {
   suspendedAt?: number | null;
   suspendedReason?: string | null;
 
-  // Informations légales de l'entreprise (IFU / RCCM)
+  // Informations légales de l'entreprise (IFU / RCCM). Tous les champs sont
+  // optionnels : un client "particulier" laisse ce bloc vide (ou absent) —
+  // c'est précisément ce qui permet de distinguer particulier/entreprise
+  // sans champ booléen dédié : legalInfo rempli => entreprise déclarée.
   legalInfo?: {
     ifuNumber?: string;
     rccmNumber?: string;
@@ -79,6 +119,13 @@ export interface Company {
     address?: string;
     ownerFullName?: string;
     activityDescription?: string;
+    // Registre de commerce (RCCM) numérisé, fourni par le marchand "entreprise".
+    // Stocké en base64 directement dans Firestore (cohérent avec le reste du
+    // système : imageBase64 sur Transaction/ShopProduct, etc.). Limité à
+    // ~500 Ko en base64 (~370 Ko de PDF réel) côté validation — voir
+    // rccmDocumentBase64 dans validation.ts.
+    rccmDocumentBase64?: string | null;
+    rccmDocumentUploadedAt?: number | null;
   };
 }
 
