@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { createJoonapayPayment, getJoonapayMisc } from "@/lib/joonapay";
 import { sendPushAndStore } from "@/lib/push";
+import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { createPaymentSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { Transaction } from "@/types";
@@ -123,6 +124,34 @@ function resolvePaymentMethod(
   return found;
 }
 
+/**
+ * Envoie le lien de paiement par email au client si une adresse a été fournie.
+ * Non bloquant : une erreur d'envoi ne doit jamais faire échouer la création
+ * du paiement (même logique que la notification push ci-dessous).
+ */
+async function sendPaymentLinkEmail(opts: {
+  customerEmail: string;
+  customerName: string;
+  amount: number;
+  currency: string;
+  description: string;
+  checkoutUrl: string;
+}): Promise<void> {
+  const formattedAmount = `${opts.amount.toLocaleString("fr-FR")} ${opts.currency}`;
+  const html = emailTemplate({
+    title: "Vous avez un nouveau lien de paiement",
+    body: `Bonjour ${opts.customerName},<br/><br/>Vous avez reçu une demande de paiement de <strong>${formattedAmount}</strong> pour : ${opts.description}.<br/><br/>Cliquez sur le bouton ci-dessous pour effectuer le paiement en toute sécurité.`,
+    ctaLabel: "Payer maintenant",
+    ctaUrl: opts.checkoutUrl,
+  });
+
+  await sendTransactionalEmail({
+    to: [{ email: opts.customerEmail, name: opts.customerName }],
+    subject: `Lien de paiement — ${formattedAmount}`,
+    htmlContent: html,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const startedAt = Date.now();
   console.log(`${LOG_PREFIX} ===> Requête reçue à ${new Date(startedAt).toISOString()}`);
@@ -147,7 +176,7 @@ export async function POST(req: NextRequest) {
       channel,
     } = parseOrThrow(createPaymentSchema, raw);
 
-    console.log(`${LOG_PREFIX} Validation OK. companyId=${companyId} amount=${amount} customerPhone="${customerPhone}" channel="${channel}" uid=${uid}`);
+    console.log(`${LOG_PREFIX} Validation OK. companyId=${companyId} amount=${amount} customerPhone="${customerPhone}" customerEmail="${customerEmail}" channel="${channel}" uid=${uid}`);
 
     const limited = await checkRateLimit(`payment-create:uid:${uid}`, 60, 3600); // 60 liens / heure / utilisateur
     console.log(`${LOG_PREFIX} Rate limit check -> allowed=${limited.allowed}`);
@@ -330,6 +359,8 @@ export async function POST(req: NextRequest) {
     await txRef.set(tx);
     console.log(`${LOG_PREFIX} Transaction Firestore créée: ${txRef.id} (joonapayPaymentId=${tx.joonapayPaymentId})`);
 
+    const checkoutUrl = joonaRes.data?.payment_link ?? "#";
+
     // Notification push
     try {
       await sendPushAndStore({
@@ -346,14 +377,33 @@ export async function POST(req: NextRequest) {
       console.error(`${LOG_PREFIX} Erreur envoi push (non bloquant):`, pushErr);
     }
 
-    console.log(`${LOG_PREFIX} ✅ Succès en ${Date.now() - startedAt}ms -> checkoutUrl=${joonaRes.data?.payment_link}`);
+    // Email du lien de paiement au client — non bloquant, uniquement si une
+    // adresse a été fournie par le marchand.
+    if (customerEmail) {
+      try {
+        await sendPaymentLinkEmail({
+          customerEmail,
+          customerName: resolvedCustomerName,
+          amount,
+          currency: country.currency,
+          description: description ?? "Paiement Verzapay",
+          checkoutUrl,
+        });
+        console.log(`${LOG_PREFIX} Email du lien de paiement envoyé à "${customerEmail}"`);
+      } catch (emailErr) {
+        console.error(`${LOG_PREFIX} Erreur envoi email client (non bloquant):`, emailErr);
+      }
+    }
+
+    console.log(`${LOG_PREFIX} ✅ Succès en ${Date.now() - startedAt}ms -> checkoutUrl=${checkoutUrl}`);
 
     return NextResponse.json({
       paymentId: txRef.id,
       joonapayId: joonaRes.data?.uuid,
-      checkoutUrl: joonaRes.data?.payment_link ?? "#",
+      checkoutUrl,
       paymentMethodName: paymentMethod?.name ?? "Toutes les méthodes",
       channel: paymentMethod?.channel ?? "ANY",
+      emailSent: !!customerEmail,
     });
   } catch (err) {
     console.error(`${LOG_PREFIX} ❌ Erreur non gérée:`, err);

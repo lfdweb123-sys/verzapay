@@ -31,6 +31,7 @@ export default function NewPaymentPage() {
   const [description, setDescription] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   // Pré-sélection par défaut : "ANY" — le client voit toutes les méthodes
   // actives sur la page JoonaPay et choisit lui-même. Le marchand peut
@@ -70,10 +71,19 @@ export default function NewPaymentPage() {
     );
   }
 
+  function isValidEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
   function handleSubmitClick(e: React.FormEvent) {
     e.preventDefault();
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum < 100) { show("Montant minimum : 100 XOF", "error"); return; }
+
+    if (customerEmail.trim() && !isValidEmail(customerEmail.trim())) {
+      show("Adresse email invalide", "error");
+      return;
+    }
 
     if (requires2FA) {
       setShow2FA(true);
@@ -97,6 +107,7 @@ export default function NewPaymentPage() {
           description: description || "Paiement Verzapay",
           customerName,
           customerPhone,
+          customerEmail: customerEmail.trim() || undefined,
           imageBase64,
           uid: user.uid,
           channel, // "ANY" | "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER"
@@ -106,7 +117,12 @@ export default function NewPaymentPage() {
       if (!res.ok) throw new Error(data.error ?? "Erreur serveur");
       setResult({ checkoutUrl: data.checkoutUrl, paymentId: data.paymentId });
       setShow2FA(false);
-      show("Lien de paiement créé avec succès", "success");
+      show(
+        customerEmail.trim()
+          ? "Lien de paiement créé et envoyé par email au client"
+          : "Lien de paiement créé avec succès",
+        "success"
+      );
     } catch (err) {
       show((err as Error).message, "error");
     } finally {
@@ -133,6 +149,7 @@ export default function NewPaymentPage() {
     setDescription("");
     setCustomerName("");
     setCustomerPhone("");
+    setCustomerEmail("");
     setImageBase64(null);
     setChannel("ANY");
   }
@@ -154,7 +171,7 @@ export default function NewPaymentPage() {
             <label className="label-base">Description</label>
             <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex : Commande #1234" className="input-base" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label-base">Nom du client</label>
               <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Kofi Mensah" className="input-base" />
@@ -163,6 +180,19 @@ export default function NewPaymentPage() {
               <label className="label-base">Téléphone</label>
               <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+229 96 00 00 00" className="input-base" />
             </div>
+          </div>
+          <div>
+            <label className="label-base">Email du client (optionnel)</label>
+            <input
+              type="email"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+              placeholder="client@email.com"
+              className="input-base"
+            />
+            <p className="text-xs text-ink-400 mt-1.5">
+              Si renseigné, le client recevra automatiquement le lien de paiement par email.
+            </p>
           </div>
 
           <div>
@@ -236,7 +266,11 @@ export default function NewPaymentPage() {
           </div>
           <div>
             <p className="font-medium text-ink-900">Lien créé avec succès</p>
-            <p className="text-sm text-ink-500 mt-1">Partagez ce lien avec votre client pour encaisser le paiement.</p>
+            <p className="text-sm text-ink-500 mt-1">
+              {customerEmail.trim()
+                ? "Le lien a aussi été envoyé par email au client. Vous pouvez également le partager manuellement."
+                : "Partagez ce lien avec votre client pour encaisser le paiement."}
+            </p>
           </div>
           <div className="bg-ink-50 rounded-lg p-3 text-sm text-ink-700 break-all text-left font-mono text-xs">
             {result.checkoutUrl}
