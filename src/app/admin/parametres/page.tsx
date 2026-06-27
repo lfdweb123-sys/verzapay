@@ -6,18 +6,17 @@ import { updateProfile } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { TwoFactorSettings } from "@/components/settings/two-factor-settings";
-import { DisplaySettings } from "@/components/settings/display-settings";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { Loader2, User, Lock, Monitor } from "lucide-react";
+import { Loader2, User, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Mêmes 3 onglets que /settings côté marchand (Profil, Sécurité, Affichage),
-// volontairement sans Entreprise / Clé API : ces sections n'ont pas de sens
-// pour un compte admin Verzapay, qui n'opère pas une entreprise marchande.
+// Seulement Profil et Sécurité : l'onglet Affichage a été retiré car
+// DisplaySettings appelle usePreferences(), qui exige un PreferencesProvider
+// non monté dans admin/layout.tsx (contrairement au layout (dashboard)
+// marchand) — ça faisait planter la page dès le clic sur cet onglet.
 const TABS = [
   { id: "profile", label: "Profil", icon: User },
   { id: "security", label: "Sécurité", icon: Lock },
-  { id: "display", label: "Affichage", icon: Monitor },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -117,17 +116,10 @@ export default function AdminParametresPage() {
         </div>
       )}
 
-      {/* Onglet Sécurité : 2FA uniquement (pas de bloc KYC, non pertinent pour un admin) */}
+      {/* Onglet Sécurité : 2FA uniquement */}
       {tab === "security" && user && (
         <div className="space-y-5 max-w-7xl">
           <TwoFactorSettings user={user} appUser={appUser} />
-        </div>
-      )}
-
-      {/* Onglet Affichage */}
-      {tab === "display" && (
-        <div className="space-y-5 max-w-7xl">
-          <DisplaySettings />
         </div>
       )}
     </div>
