@@ -5,14 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, ArrowDownLeft, ArrowUpRight, CreditCard, Users,
   Wallet, UsersRound, Building2, LogOut, ShieldAlert, X, Menu, Mail,
-  MessageSquare, UserCog,
+  MessageSquare, UserCog, Settings,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { UserAvatar } from "@/components/ui/user-avatar";
-
-
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard },
@@ -26,6 +24,7 @@ const ADMIN_NAV = [
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
   { href: "/admin/email-requests", label: "Demandes d'email", icon: Mail },
   { href: "/admin/teams", label: "Équipe Verzapay", icon: UserCog },
+  { href: "/admin/parametres", label: "Paramètres", icon: Settings },
 ];
 
 export function AdminSidebar() {
