@@ -204,6 +204,13 @@ export async function POST(req: NextRequest) {
 
     let companyId = null;
     let uid = null;
+    // ID du document kyc_mappings effectivement utilisé pour résoudre cet
+    // événement, quelle que soit la méthode — sert plus bas à marquer CE
+    // mapping précis comme "manual_review" une fois résolu, pour qu'il ne
+    // reste jamais indéfiniment candidat à de futures résolutions ambiguës
+    // (cf MÉTHODE 4 : sans ça, un mapping résolu via fallback continuerait à
+    // compter comme "non résolu" à chaque appel suivant).
+    let resolvedMappingDocId: string | null = null;
     // Trace la méthode de résolution utilisée, uniquement pour les logs —
     // utile pour repérer si la méthode 4 "dernier recours" a été déclenchée
     // (signal qu'il faudrait enquêter sur pourquoi verificationId n'a pas
@@ -218,6 +225,7 @@ export async function POST(req: NextRequest) {
       const mapping = mappingSnap.data()!;
       companyId = mapping.companyId;
       uid = mapping.userId;
+      resolvedMappingDocId = mappingSnap.id;
       resolutionMethod = "kyc_mappings_by_verificationId";
       console.log(`✅ [KYC] Mapping trouvé dans kyc_mappings: ${companyId}`);
     }
@@ -239,11 +247,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🔥 MÉTHODE 3: Chercher le sessionId dans les mappings (fallback)
+    // 🔥 MÉTHODE 3: Chercher une correspondance exacte de verificationId déjà
+    // enregistrée sur un mapping "documents_submitted" (cas où document.submitted
+    // a bien été reçu et a mis à jour ce champ, mais où la doc principale
+    // kyc_mappings/{verificationId} n'a pas été créée pour une autre raison).
     if (!companyId) {
-      console.log(`🔍 [KYC] Recherche du sessionId associé à cette verificationId`);
+      console.log(`🔍 [KYC] Recherche d'une correspondance verificationId parmi les mappings documents_submitted`);
 
-      // Chercher dans tous les mappings pour trouver le sessionId
       const allMappings = await db
         .collection("kyc_mappings")
         .where("status", "==", "documents_submitted")
@@ -257,10 +267,10 @@ export async function POST(req: NextRequest) {
         const data = doc.data();
         console.log(`📊 [KYC] Mapping: ${doc.id} -> companyId=${data.companyId}, sessionId=${data.sessionId}, verificationId=${data.verificationId}`);
 
-        // Si le verificationId correspond OU si c'est le plus récent
         if (data.verificationId === verificationId) {
           companyId = data.companyId;
           uid = data.userId;
+          resolvedMappingDocId = doc.id;
           resolutionMethod = "kyc_mappings_documents_submitted_match";
           console.log(`✅ [KYC] Trouvé par correspondance: ${companyId}`);
           break;
@@ -268,41 +278,70 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 🔥 MÉTHODE 4: Dernier recours - utiliser le sessionId du mapping récent
+    // 🔥 MÉTHODE 4: Dernier recours - utiliser le mapping récent non résolu
     //
-    // GARDE DE SÉCURITÉ : on ne déclenche ce fallback QUE s'il existe une
-    // seule entreprise candidate plausible (un seul mapping "en attente" non
-    // résolu, tous statuts confondus, le plus récent étant largement isolé
-    // dans le temps). Si plusieurs marchands ont un cycle KYC en cours
-    // simultanément, deviner lequel correspond à cet événement risquerait
-    // d'écrire les données d'identité (nom, n° de pièce, date de naissance...)
-    // d'une personne dans le dossier KYC d'un autre marchand — une fuite de
-    // données personnelles, pas juste une erreur d'affichage. Dans ce cas on
-    // préfère ignorer l'événement (ack sans action) plutôt que de deviner.
-    if (!companyId) {
-      console.log(`🔍 [KYC] Dernier recours: recherche de mappings récents non résolus`);
+    // Ce chemin est le cas NORMAL (pas une vraie "dernière chance") pour les
+    // flux VerifyPro qui ne déclenchent jamais document.submitted /
+    // verification.started avant de passer directement à
+    // verification.manual_review : le mapping reste alors bloqué à
+    // "session_created" pour toujours, avec verificationId=null — les
+    // MÉTHODES 1 à 3 ci-dessus ne peuvent structurellement jamais le trouver
+    // dans ce cas, donc c'est cette méthode qui fait le travail réel.
+    //
+    // GARDE DE SÉCURITÉ EN DEUX TEMPS :
+    //  1. FRAÎCHEUR — une session VerifyPro expire après ~60 minutes (cf
+    //     /api/kyc/session, expiresInMinutes: 60). On ne considère donc que
+    //     les mappings créés dans les 30 dernières minutes : un mapping plus
+    //     vieux correspond à une session abandonnée/expirée et ne doit plus
+    //     jamais être candidat, même s'il n'a jamais été marqué résolu. Ça
+    //     élimine automatiquement l'accumulation de vieux tests en base sans
+    //     avoir besoin de les nettoyer manuellement.
+    //  2. AMBIGUÏTÉ — sur ce sous-ensemble déjà filtré par fraîcheur, on
 
-      const recentUnresolved = await db
+    //     n'utilise le fallback QUE s'il reste exactement un candidat. Si
+    //     plusieurs marchands ont un cycle KYC en cours simultanément dans
+    //     cette même fenêtre de 30 minutes, deviner lequel correspond à
+    //     l'événement risquerait d'écrire les données d'identité (nom, n° de
+    //     pièce, date de naissance...) d'une personne dans le dossier KYC
+    //     d'un autre marchand — une fuite de données personnelles, pas juste
+    //     une erreur d'affichage. Dans ce cas on préfère ignorer l'événement
+    //     (ack sans action, loggé en warning) plutôt que de deviner.
+    if (!companyId) {
+      console.log(`🔍 [KYC] Dernier recours: recherche de mappings récents non résolus (< 30 min)`);
+
+      const FRESHNESS_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+      const cutoff = Date.now() - FRESHNESS_WINDOW_MS;
+
+      const recentUnresolvedRaw = await db
         .collection("kyc_mappings")
         .where("status", "in", ["session_created", "documents_submitted"])
         .orderBy("createdAt", "desc")
-        .limit(5)
+        .limit(20) // marge avant filtrage par fraîcheur, au cas où plusieurs vieux mappings précèdent les récents
         .get();
 
-      console.log(`📊 [KYC] ${recentUnresolved.size} mappings récents non résolus (status in [session_created, documents_submitted])`);
+      const freshCandidates = recentUnresolvedRaw.docs.filter((doc) => {
+        const createdAt = doc.data()?.createdAt ?? 0;
+        return createdAt >= cutoff;
+      });
 
-      if (recentUnresolved.size === 1) {
-        const only = recentUnresolved.docs[0].data();
+      console.log(
+        `📊 [KYC] ${recentUnresolvedRaw.size} mappings non résolus au total, ${freshCandidates.length} dans la fenêtre de fraîcheur (< 30 min)`
+      );
+
+      if (freshCandidates.length === 1) {
+        const onlyDoc = freshCandidates[0];
+        const only = onlyDoc.data();
         companyId = only.companyId;
         uid = only.userId;
-        resolutionMethod = "fallback_single_unresolved_candidate";
-        console.log(`✅ [KYC] Un seul candidat non résolu trouvé, utilisation: ${companyId}`);
-      } else if (recentUnresolved.size > 1) {
+        resolvedMappingDocId = onlyDoc.id;
+        resolutionMethod = "fallback_single_fresh_unresolved_candidate";
+        console.log(`✅ [KYC] Un seul candidat récent non résolu trouvé, utilisation: ${companyId}`);
+      } else if (freshCandidates.length > 1) {
         console.warn(
-          `⚠️ [KYC] ${recentUnresolved.size} candidats non résolus trouvés simultanément -> ambigu, ABANDON du fallback pour éviter une mauvaise attribution de données d'identité.`
+          `⚠️ [KYC] ${freshCandidates.length} candidats récents (< 30 min) trouvés simultanément -> ambigu, ABANDON du fallback pour éviter une mauvaise attribution de données d'identité.`
         );
       } else {
-        console.log(`❌ [KYC] Aucun candidat non résolu trouvé`);
+        console.log(`❌ [KYC] Aucun candidat récent (< 30 min) trouvé — les mappings non résolus existants sont trop anciens (sessions expirées/abandonnées)`);
       }
     }
 
@@ -344,17 +383,21 @@ export async function POST(req: NextRequest) {
     await db.collection("companies").doc(companyId).update(updateData);
     console.log("✅ [KYC] Entreprise mise à jour: review (avec données extraites)");
 
-    // 🔥 Mettre à jour le mapping avec verificationId
-    const sessionId = event.data?.sessionId;
-    if (sessionId) {
-      const mappingDoc = await db.collection("kyc_mappings").doc(sessionId).get();
-      if (mappingDoc.exists) {
-        await db.collection("kyc_mappings").doc(sessionId).update({
-          verificationId,
-          status: "manual_review"
-        });
-        console.log(`✅ [KYC] Mapping mis à jour avec verificationId: ${verificationId}`);
-      }
+    // 🔥 Marquer le mapping effectivement utilisé comme résolu, pour qu'il
+    // ne reste jamais indéfiniment candidat à de futures résolutions (cf
+    // commentaire sur resolvedMappingDocId plus haut). On n'utilise PAS
+    // event.data?.sessionId ici : ce champ n'existe pas dans le payload
+    // verification.manual_review observé (seulement id, extractedData,
+    // faceMatch, amlResult...) — s'appuyer dessus laissait le mapping
+    // éternellement "non résolu" même après une résolution réussie.
+    if (resolvedMappingDocId) {
+      await db.collection("kyc_mappings").doc(resolvedMappingDocId).update({
+        verificationId,
+        status: "manual_review",
+      });
+      console.log(`✅ [KYC] Mapping ${resolvedMappingDocId} marqué résolu (manual_review) avec verificationId: ${verificationId}`);
+    } else {
+      console.warn(`⚠️ [KYC] Aucun mapping document identifié à marquer résolu — vérifier la cohérence des méthodes de résolution`);
     }
 
     // Envoyer les notifications
