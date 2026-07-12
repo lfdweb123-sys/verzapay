@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Menu, X, ArrowRight } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 const NAV_LINKS = [
   { href: "#fonctionnement", label: "Fonctionnement" },
@@ -29,7 +29,7 @@ export function MarketingHeader() {
     >
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Link href="/">
-          <Image src="/icons/verzapay.png" alt="Verzapay" width={140} height={36} priority className="h-9 w-auto" />
+          <Logo size="md" />
         </Link>
         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
