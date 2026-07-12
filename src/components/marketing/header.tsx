@@ -28,7 +28,9 @@ export function MarketingHeader() {
     <header
       className={cn(
         "fixed top-0 inset-x-0 z-50 transition-all duration-300",
-        scrolled ? "bg-white/90 backdrop-blur-md border-b border-ink-200" : "bg-transparent border-b border-transparent"
+        scrolled
+          ? "bg-white/90 backdrop-blur-md border-b border-ink-200"
+          : "bg-transparent border-b border-transparent"
       )}
     >
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -42,27 +44,40 @@ export function MarketingHeader() {
             className="h-9 w-auto"
           />
         </Link>
+
         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className="text-sm text-ink-600 hover:text-ink-900 font-medium transition-colors">
+            
+              key={l.href}
+              href={l.href}
+              className="text-sm text-ink-600 hover:text-ink-900 font-medium transition-colors"
+            >
               {l.label}
             </a>
           ))}
         </nav>
+
         <div className="hidden lg:flex items-center gap-3">
-          <Link href="/login" className="text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2">
+          <Link
+            href="/login"
+            className="text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2"
+          >
             Se connecter
           </Link>
           <Link href="/register" className="btn-primary h-10 text-sm">
-            Créer un compte
+            Creer un compte
             <ArrowRight size={15} />
           </Link>
         </div>
-        <button onClick={() => setMobileOpen((v) => !v)} className="lg:hidden w-9 h-9 flex items-center justify-center text-ink-700">
+
+        <button
+          onClick={() => setMobileOpen((v) => !v)}
+          className="lg:hidden w-9 h-9 flex items-center justify-center text-ink-700"
+        >
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
-      {/* Menu mobile */}
+
       {mobileOpen && (
         <div className="lg:hidden bg-white border-t border-ink-200 px-5 py-4 space-y-1 animate-slide-up">
           {NAV_LINKS.map((l) => (
@@ -76,8 +91,12 @@ export function MarketingHeader() {
             </a>
           ))}
           <div className="pt-3 mt-2 border-t border-ink-100 flex flex-col gap-2">
-            <Link href="/login" className="btn-secondary w-full">Se connecter</Link>
-            <Link href="/register" className="btn-primary w-full">Créer un compte gratuit</Link>
+            <Link href="/login" className="btn-secondary w-full">
+              Se connecter
+            </Link>
+            <Link href="/register" className="btn-primary w-full">
+              Creer un compte gratuit
+            </Link>
           </div>
         </div>
       )}
