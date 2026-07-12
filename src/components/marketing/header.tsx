@@ -33,7 +33,7 @@ export function MarketingHeader() {
     >
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Link href="/">
-          <Image src="/icons/verzapay.png" alt="Verzapay" width={140} height={36} priority className="h-9 w-auto" />
+          <Image src="/icons/verzapay.png" alt="Verzapay" width={200} height={52} priority className="h-12 w-auto" />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-8">
