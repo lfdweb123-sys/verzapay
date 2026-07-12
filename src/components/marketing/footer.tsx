@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo } from "@/components/ui/logo";
+import Image from "next/image";
 import { Mail, MapPin } from "lucide-react";
 
 const COLUMNS = [
@@ -39,7 +39,13 @@ export function MarketingFooter() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] gap-10">
           {/* Bloc marque */}
           <div>
-            <Logo size="md" />
+            <Image
+              src="/icons/verzapay.png"
+              alt="VerzaPay"
+              width={140}
+              height={36}
+              className="h-9 w-auto"
+            />
             <p className="mt-4 text-sm text-ink-500 leading-relaxed max-w-xs">
               La passerelle de paiement pensée pour l&apos;Afrique. Mobile Money, carte bancaire et vérification d&apos;identité, réunis dans une seule plateforme.
             </p>
@@ -54,7 +60,6 @@ export function MarketingFooter() {
               </p>
             </div>
           </div>
-
           {/* Colonnes de liens */}
           {COLUMNS.map((col) => (
             <div key={col.title}>
@@ -71,14 +76,12 @@ export function MarketingFooter() {
             </div>
           ))}
         </div>
-
         {/* Disclaimer réglementaire */}
         <div className="mt-10 pt-6 border-t border-ink-100">
           <p className="text-xs text-ink-400 leading-relaxed text-center">
             Verzapay n&apos;est pas une banque et ne fournit pas elle-même de services de monnaie électronique. Les opérations d&apos;encaissement et de décaissement sont exécutées par l&apos;intermédiaire de solutions de paiement agréées, intégrées à notre plateforme.
           </p>
         </div>
-
         {/* Bas de footer */}
         <div className="mt-6 pt-6 border-t border-ink-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-ink-400">
