@@ -6,6 +6,18 @@ import { ArrowRight, ShieldCheck, Smartphone, CreditCard, CheckCircle2 } from "l
 export function Hero() {
   return (
     <section className="relative overflow-hidden bg-white pt-28 pb-16 sm:pt-36 sm:pb-24">
+      {/* Rayures verticales discrètes en fond */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(90deg, #f4f3ee 0px, #f4f3ee 64px, transparent 64px, transparent 128px)",
+          WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 75%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, black 0%, black 75%, transparent 100%)",
+        }}
+      />
+
       {/* Halo radial discret en fond, ancré côté droit */}
       <div
         aria-hidden
