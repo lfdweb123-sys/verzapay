@@ -70,7 +70,9 @@ service cloud.firestore {
       // Seul le champ "read" peut être modifié par le propriétaire (marquer comme lu)
       allow update: if request.auth != null && resource.data.uid == request.auth.uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow create, delete: if false;
+      // Le propriétaire peut supprimer sa propre notification (unitaire ou en masse)
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if false;
     }
 
     // ───────────────────────────────────────────────

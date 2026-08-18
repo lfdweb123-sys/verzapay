@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, Plus, Send, X, Menu, ChevronDown, LogOut } from "lucide-react";
+import { Bell, Plus, Send, X, Menu, ChevronDown, LogOut, ChevronRight } from "lucide-react";
 import { collection, query, where, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
@@ -51,6 +51,14 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
     for (const n of notifications.filter((x) => !x.read)) {
       await updateDoc(doc(db, "notifications", n.id), { read: true });
     }
+  }
+
+  async function openNotification(n: NotificationItem) {
+    setNotifOpen(false);
+    if (!n.read) {
+      await updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {});
+    }
+    router.push(n.link ?? "/notifications");
   }
 
   async function handleLogout() {
@@ -121,7 +129,14 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
                   <p className="text-sm text-ink-500 text-center py-8">Aucune notification</p>
                 ) : (
                   notifications.map((n) => (
-                    <div key={n.id} className={cn("px-4 py-3 border-b border-ink-50 last:border-0", !n.read && "bg-brand-50/50")}>
+                    <button
+                      key={n.id}
+                      onClick={() => openNotification(n)}
+                      className={cn(
+                        "w-full text-left px-4 py-3 border-b border-ink-50 last:border-0 hover:bg-ink-50 transition-colors",
+                        !n.read && "bg-brand-50/50"
+                      )}
+                    >
                       <div className="flex items-start gap-2">
                         <NotifDot type={n.type} />
                         <div className="flex-1 min-w-0">
@@ -130,10 +145,17 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
                           <p className="text-[11px] text-ink-400 mt-1">{formatRelative(n.createdAt)}</p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
+              <Link
+                href="/notifications"
+                onClick={() => setNotifOpen(false)}
+                className="flex items-center justify-center gap-1 px-4 py-2.5 border-t border-ink-100 text-sm font-medium text-brand-700 hover:bg-ink-50 transition-colors"
+              >
+                Voir toutes les notifications <ChevronRight size={14} />
+              </Link>
             </div>
           )}
         </div>

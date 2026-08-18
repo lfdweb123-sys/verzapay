@@ -34,7 +34,7 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const link = event.notification.data?.link || '/dashboard';
+  const link = event.notification.data?.link || '/notifications';
   event.waitUntil(
     clients.openWindow(link)
   );
