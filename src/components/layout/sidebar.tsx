@@ -68,7 +68,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
 
   async function handleLogout() {
     await logout();
-    router.push("/login");
+    router.push("/");
   }
 
   const navList = isAdmin

@@ -64,7 +64,7 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
   async function handleLogout() {
     setProfileOpen(false);
     await logout();
-    router.push("/login");
+    router.push("/");
   }
 
   return (
