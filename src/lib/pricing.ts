@@ -7,7 +7,7 @@
  * un nom de partenaire de paiement, uniquement "Verzapay".
  */
 
-export const VERZAPAY_COMMISSION_RATE = 0.015; // 1.5% — taux Verzapay affiché dans l'app (companies.commissionRate par défaut)
+export const VERZAPAY_COMMISSION_RATE = 0.005; // 0.5% — taux Verzapay affiché dans l'app (companies.commissionRate par défaut)
 
 export interface MobileMoneyRate {
   country: string;

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       kycSessionId: null,
       kycRiskLevel: null,
       kycReviewedAt: null,
-      commissionRate: 0.015,
+      commissionRate: 0.005,
       joonapayConfigured: false,
       apiKeyPublic: generateApiPublicKey(),
       apiKeySecretGenerated: false,

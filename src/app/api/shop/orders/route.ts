@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur lors de la création du paiement" }, { status: 502 });
     }
 
-    const commission = Math.round(totalAmount * (company.commissionRate ?? 0.015));
+    const commission = Math.round(totalAmount * (company.commissionRate ?? 0.005));
     const netAmount = totalAmount - commission;
 
     const joonapayPaymentUuid = joonaRes.data?.uuid ?? null;

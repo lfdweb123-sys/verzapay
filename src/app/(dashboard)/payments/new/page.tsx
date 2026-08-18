@@ -247,7 +247,7 @@ export default function NewPaymentPage() {
 
           <ImageUploadField value={imageBase64} onChange={setImageBase64} />
           <p className="text-xs text-ink-500 bg-ink-50 rounded-lg p-3">
-            Mobile Money, carte bancaire et virement acceptés selon votre configuration JoonaPay. Une commission de <strong>{((activeCompany?.commissionRate ?? 0.015) * 100).toFixed(1)}%</strong> sera prélevée sur chaque paiement réussi.
+            Mobile Money, carte bancaire et virement acceptés selon votre configuration JoonaPay. Une commission de <strong>{((activeCompany?.commissionRate ?? 0.005) * 100).toFixed(1)}%</strong> sera prélevée sur chaque paiement réussi.
           </p>
           {requires2FA && (
             <p className="text-xs text-ink-400 bg-ink-50 rounded-lg p-2.5">

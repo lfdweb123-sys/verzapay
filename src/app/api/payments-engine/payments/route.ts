@@ -324,7 +324,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur lors de la création du paiement" }, { status: 502 });
     }
 
-    const commission = Math.round(amount * (company.commissionRate ?? 0.015));
+    const commission = Math.round(amount * (company.commissionRate ?? 0.005));
     const netAmount = amount - commission;
 
     // Si le marchand a laissé le choix au client (mode "ANY"), on ne connaît

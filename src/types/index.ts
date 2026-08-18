@@ -84,7 +84,7 @@ export interface Company {
   // verification.manual_review ou verification.completed reçu pour cette
   // entreprise ; null/absent tant qu'aucune vérification n'a abouti.
   kycExtractedData?: KycExtractedData | null;
-  commissionRate: number; // ex 0.015 = 1.5%
+  commissionRate: number; // ex 0.005 = 0.5%
   joonapayClientKey?: string | null; // chiffré côté serveur uniquement, jamais exposé tel quel au client
   joonapayConfigured?: boolean;
   apiKeyPublic?: string; // identifiant public, toujours visible (ex: vpz_pk_xxx)

@@ -35,7 +35,7 @@ export function Pricing() {
             <div className="lg:w-80 shrink-0">
               <p className="text-sm font-medium text-ink-500">Commission par transaction</p>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-5xl font-medium text-ink-900 tabular-nums">1,5</span>
+                <span className="text-5xl font-medium text-ink-900 tabular-nums">0,5</span>
                 <span className="text-2xl font-medium text-ink-900">%</span>
               </div>
               <p className="text-sm text-ink-500 mt-1.5">Sur chaque paiement encaissé avec succès. Dégressif selon volume.</p>

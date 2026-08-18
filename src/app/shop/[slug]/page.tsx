@@ -395,7 +395,7 @@ export default function PublicShopPage() {
               </div>
 
               <p className="text-xs text-ink-400 bg-ink-50 rounded-lg p-3">
-                En validant, vous serez redirigé vers une page de paiement sécurisé. Une commission de 1,5% est incluse dans le montant total.
+                En validant, vous serez redirigé vers une page de paiement sécurisé. Une commission de 0,5% est incluse dans le montant total.
               </p>
 
               <button

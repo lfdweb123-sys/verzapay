@@ -2,7 +2,7 @@ const STATS = [
   { value: "< 3 min", label: "Vérification KYC marchand" },
   { value: "12 pays", label: "Couverture Ouest africaine" },
   { value: "98,2 %", label: "Taux de succès des paiements" },
-  { value: "1,5 %", label: "Commission par défaut, dégressive" },
+  { value: "0,5 %", label: "Commission par défaut, dégressive" },
 ];
 
 export function TrustBar() {

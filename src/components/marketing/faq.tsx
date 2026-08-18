@@ -27,7 +27,7 @@ const FAQS = [
   },
   {
     q: "Quelle commission est appliquée sur mes paiements ?",
-    a: "La commission par défaut est de 1,5 % par transaction réussie, sans frais fixe ni abonnement. Aucun frais n'est prélevé en cas d'échec du paiement.",
+    a: "La commission par défaut est de 0,5 % par transaction réussie, sans frais fixe ni abonnement. Aucun frais n'est prélevé en cas d'échec du paiement.",
   },
 ];
 
