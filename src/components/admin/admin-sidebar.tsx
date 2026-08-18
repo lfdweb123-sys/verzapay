@@ -106,7 +106,7 @@ export function AdminSidebar() {
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-danger-300 bg-danger-500/10 hover:bg-danger-500/20 transition-colors"
+            className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-white bg-danger-500/10 hover:bg-danger-500/20 transition-colors"
           >
             <LogOut size={16} />
             Déconnexion
