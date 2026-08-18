@@ -14,10 +14,10 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { cn, formatRelative } from "@/lib/utils";
 import { Bell, Trash2, CheckSquare, Square, X } from "lucide-react";
+import Link from "next/link";
 import type { NotificationItem } from "@/types";
 
 const TYPE_COLORS: Record<NotificationItem["type"], string> = {
@@ -34,12 +34,12 @@ const SWIPE_MAX = -96; // butée visuelle du glissement
 
 export default function NotificationsPage() {
   const { user } = useAuth();
-  const router = useRouter();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [openedNotif, setOpenedNotif] = useState<NotificationItem | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -84,7 +84,7 @@ export default function NotificationsPage() {
     if (!n.read) {
       await updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {});
     }
-    if (n.link) router.push(n.link);
+    setOpenedNotif(n);
   }
 
   async function deleteOne(id: string) {
@@ -105,7 +105,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="w-full">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-medium text-ink-900 flex items-center gap-2">
@@ -217,6 +217,60 @@ export default function NotificationsPage() {
       <p className="hidden sm:block text-xs text-ink-400 mt-3">
         Astuce : sur mobile, glissez une notification vers la gauche pour la supprimer.
       </p>
+
+      {openedNotif && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setOpenedNotif(null)}
+        >
+          <div
+            className="bg-white w-full sm:max-w-lg sm:rounded-xl rounded-t-2xl shadow-popover overflow-hidden animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-ink-100">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <span className={cn("mt-1.5 w-2 h-2 rounded-full shrink-0", TYPE_COLORS[openedNotif.type])} />
+                <div className="min-w-0">
+                  <p className="text-base font-medium text-ink-900">{openedNotif.title}</p>
+                  <p className="text-xs text-ink-400 mt-0.5">{formatRelative(openedNotif.createdAt)}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOpenedNotif(null)}
+                className="shrink-0 text-ink-400 hover:text-ink-700"
+                aria-label="Fermer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+              <p className="text-sm text-ink-700 whitespace-pre-wrap leading-relaxed">{openedNotif.body}</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-ink-100">
+              <button
+                onClick={() => {
+                  deleteOne(openedNotif.id);
+                  setOpenedNotif(null);
+                }}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium text-danger-700 hover:bg-danger-50 transition-colors"
+              >
+                <Trash2 size={15} /> Supprimer
+              </button>
+              {openedNotif.link && (
+                <Link
+                  href={openedNotif.link}
+                  onClick={() => setOpenedNotif(null)}
+                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-brand-700 text-white text-sm font-medium hover:bg-brand-800 transition-colors"
+                >
+                  Voir
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
