@@ -9,6 +9,7 @@ import { Pricing } from "@/components/marketing/pricing";
 import { Faq } from "@/components/marketing/faq";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { MarketingFooter } from "@/components/marketing/footer";
+import { ScrollToTop } from "@/components/marketing/scroll-to-top";
 
 export default function HomePage() {
   return (
@@ -26,6 +27,7 @@ export default function HomePage() {
         <FinalCta />
       </main>
       <MarketingFooter />
+      <ScrollToTop />
     </div>
   );
 }
