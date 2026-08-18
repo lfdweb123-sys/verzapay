@@ -27,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleInactivityLogout = useCallback(async () => {
     await logout();
     show("Vous avez été déconnecté(e) après 30 minutes d'inactivité.", "info");
-    router.replace("/login");
+    router.replace("/");
   }, [logout, router, show]);
 
   const { showWarning, secondsLeft, stayActive } = useInactivityLogout(handleInactivityLogout, Boolean(user) && isAdmin);
