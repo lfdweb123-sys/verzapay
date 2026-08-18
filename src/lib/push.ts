@@ -10,6 +10,13 @@ interface PushParams {
   link?: string;
 }
 
+const PUSH_BODY_MAX_LENGTH = 120; // limite d'affichage OS/navigateur pour le corps d'une notif push
+
+function truncateForPush(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1).trimEnd() + "…";
+}
+
 export async function sendPushAndStore(params: PushParams): Promise<void> {
   const db = adminDb();
 
@@ -34,7 +41,7 @@ export async function sendPushAndStore(params: PushParams): Promise<void> {
     const messaging = adminMessaging();
     await messaging.sendEachForMulticast({
       tokens,
-      notification: { title: params.title, body: params.body },
+      notification: { title: params.title, body: truncateForPush(params.body, PUSH_BODY_MAX_LENGTH) },
       webpush: {
         fcmOptions: { link: params.link ?? "/dashboard" },
         notification: { icon: "/icons/icon-192.png" },
