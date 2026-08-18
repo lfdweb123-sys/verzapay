@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.replace("/login"); return; }
+    if (!user) { router.replace("/"); return; }
     const requires2FA = appUser?.twoFactorEnabled !== false;
     if (requires2FA && !twoFactorVerified) { router.replace("/verify-2fa"); return; }
     if (!isAdmin) { router.replace("/dashboard"); return; }
