@@ -88,7 +88,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
 
       <aside
         className={cn(
-          "fixed left-0 top-0 bottom-0 z-50 flex flex-col bg-white border-r border-ink-200 transition-all duration-300",
+          "fixed left-0 top-0 bottom-0 z-50 flex flex-col bg-white border-r border-ink-200 transition-all duration-300 overflow-hidden",
           // Desktop : largeur selon collapsed, toujours visible
           collapsed ? "lg:w-[76px]" : "lg:w-[260px]",
           // Mobile : drawer plein, translate selon mobileOpen
@@ -160,7 +160,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
               <div className="px-3 py-2 border-b border-ink-100">
                 <p className="text-[10px] font-semibold text-ink-500 uppercase tracking-wider">Mes entreprises</p>
               </div>
-              <div className="py-1 max-h-48 overflow-y-auto scrollbar-none">
+              <div className="py-1 max-h-[60vh] overflow-y-auto scrollbar-none overscroll-contain">
                 {companies.map((c) => (
                   <button
                     key={c.id}
