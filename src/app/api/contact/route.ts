@@ -3,11 +3,18 @@ import { adminDb } from "@/lib/firebase-admin";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { contactSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { isSpamContact } from "@/lib/spam";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { name, email, subject, message, source, uid, companyId } = parseOrThrow(contactSchema, raw);
+
+    // Anti-spam : messages aléatoires (ex. "JdGfuYjkbbpofRHvSmBrXjk"). Réponse
+    // OK silencieuse : rien n'est enregistré ni envoyé, et le spammeur n'est pas informé.
+    if (isSpamContact({ name, subject, message })) {
+      return NextResponse.json({ ok: true });
+    }
 
     // Anti-spam : limite par IP (formulaire public, pas d'authentification requise)
     const ip = getClientIp(req);
@@ -42,7 +49,7 @@ export async function POST(req: NextRequest) {
       subject: "Nous avons bien reçu votre message — Verzapay",
       htmlContent: emailTemplate({
         title: "Message bien reçu",
-        body: `Bonjour ${escapedName},<br/><br/>Nous avons bien reçu votre message et reviendrons vers vous dans les plus brefs délais.<br/><br/><em>Votre message : "${escapedMessage}"</em>`,
+        body: `Bonjour ${escapedName},<br/><br/>Nous avons bien reçu votre message et reviendrons vers vous dans les plus brefs délais.<br/><br/>Pour une réponse rapide et fiable, contactez-nous aussi sur WhatsApp : <strong>+229 62 75 87 03</strong>.<br/><br/><em>Votre message : "${escapedMessage}"</em>`,
       }),
     });
 

@@ -23,6 +23,19 @@ export async function POST(req: NextRequest) {
       if (!snap.exists) return NextResponse.json({ error: "Utilisateur introuvable" }, { status: 404 });
       const data = snap.data()!;
       recipients = [{ uid: targetUid, email: data.email, displayName: data.displayName ?? "Marchand" }];
+    } else if (target === "unverified") {
+      // Utilisateurs dont aucune entreprise n'a un KYC approuvé (identité non vérifiée)
+      const approvedSnap = await db.collection("companies").where("kycStatus", "==", "approved").get();
+      const verifiedUids = new Set<string>();
+      for (const c of approvedSnap.docs) {
+        const data = c.data();
+        if (data.ownerUid) verifiedUids.add(data.ownerUid);
+        if (Array.isArray(data.members)) data.members.forEach((m: string) => verifiedUids.add(m));
+      }
+      const snap = await db.collection("users").limit(1000).get();
+      recipients = snap.docs
+        .filter((d) => !verifiedUids.has(d.id))
+        .map((d) => ({ uid: d.id, email: d.data().email, displayName: d.data().displayName ?? "Marchand" }));
     } else {
       const snap = await db.collection("users").limit(1000).get();
       recipients = snap.docs.map((d) => ({ uid: d.id, email: d.data().email, displayName: d.data().displayName ?? "Marchand" }));

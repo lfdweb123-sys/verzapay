@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import {
   Copy, CheckCircle2, Key, Zap, ArrowDownLeft, ArrowUpRight,
-  Webhook, AlertTriangle, Moon, Sun, Globe, Loader2,
+  Webhook, AlertTriangle, Moon, Sun, Globe, Loader2, MessageCircle,
 } from "lucide-react";
 import { DocsDarkContext } from "./layout";
 
@@ -15,6 +15,7 @@ const SECTIONS = [
   { id: "payouts", label: "Créer un décaissement", icon: ArrowUpRight },
   { id: "webhooks", label: "Webhooks", icon: Webhook },
   { id: "errors", label: "Codes d'erreur", icon: AlertTriangle },
+  { id: "assistance", label: "Aide à l'intégration", icon: MessageCircle },
 ];
 
 // URL de base de l'API, dérivée de la variable d'environnement publique au
@@ -397,6 +398,19 @@ export default function DocsPage() {
               Le pays est déduit automatiquement à partir du numéro de téléphone du client — voir{" "}
               <a href="#countries" style={{ color: c.brandCode }}>la liste des pays disponibles</a>.
             </p>
+            <div
+              className="mt-4 rounded-lg p-3.5 text-sm"
+              style={{
+                backgroundColor: c.warningBg,
+                border: `1px solid ${c.warningBorder}`,
+                color: c.warningText,
+              }}
+            >
+              <strong>Le numéro de téléphone du client est requis</strong> pour générer le lien de paiement
+              (paramètre <code className="font-mono">customer_phone</code>). Il doit être au format international,
+              avec l&apos;indicatif du pays, par exemple <code className="font-mono">+22996000000</code>. Sans ce numéro,
+              le pays ne peut pas être déterminé et la requête est rejetée avec une erreur <code className="font-mono">400</code>.
+            </div>
             <div className="flex items-center gap-2 mt-4 mb-1">
               <span
                 className="badge font-medium"
@@ -469,6 +483,14 @@ export default function DocsPage() {
             <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
               Configurez une URL de webhook depuis votre espace Développeur pour recevoir des notifications en temps réel à chaque événement.
             </p>
+            <div
+              className="mt-4 rounded-xl p-4 text-sm leading-relaxed"
+              style={{ backgroundColor: c.surfaceSoft, border: `1px solid ${c.border}`, color: c.textMuted }}
+            >
+              <strong style={{ color: c.text }}>Où renseigner l&apos;URL ?</strong> Connectez-vous à votre tableau de bord,
+              ouvrez la page <strong style={{ color: c.text }}>Développeur</strong>, saisissez l&apos;URL de votre webhook
+              dans le champ prévu à cet effet, puis enregistrez. Les notifications ne sont envoyées qu&apos;une fois cette URL renseignée.
+            </div>
             <div
               className="mt-4 rounded-lg p-3.5 text-sm"
               style={{
@@ -572,6 +594,36 @@ export default function DocsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </section>
+
+          {/* Aide à l'intégration */}
+          <section id="assistance">
+            <h2 className="text-xl font-medium" style={{ color: c.text }}>
+              Aide à l&apos;intégration
+            </h2>
+            <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
+              Vous n&apos;arrivez pas à intégrer l&apos;API ? Vous pouvez confier l&apos;intégration à un développeur web
+              en le contactant sur WhatsApp.
+            </p>
+            <div
+              className="mt-4 rounded-xl p-4 text-sm leading-relaxed"
+              style={{ backgroundColor: c.warningBg, border: `1px solid ${c.warningBorder}`, color: c.warningText }}
+            >
+              <p>
+                <strong>WhatsApp :</strong>{" "}
+                <a
+                  href="https://wa.me/2290190083857"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono underline"
+                >
+                  +229 01 90 08 38 57
+                </a>
+              </p>
+              <p className="mt-1.5">
+                <strong>Service payant :</strong> 30 000 F pour l&apos;intégration.
+              </p>
             </div>
           </section>
 

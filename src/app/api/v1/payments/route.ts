@@ -22,7 +22,7 @@ const publicCreatePaymentSchema = z.object({
   currency: z.literal("XOF").optional(),
   description: z.string().max(200).optional().nullable(),
   customer_name: z.string().max(100).optional().nullable(),
-  customer_phone: z.string().min(6).max(30).optional().nullable(),
+  customer_phone: z.string({ error: "customer_phone est requis" }).min(6, "customer_phone est requis").max(30),
   customer_email: z.string().email().max(150).optional().nullable(),
   // "any" (ou absent) = pas de méthode imposée, le client choisit sur la
   // page JoonaPay. Sinon verrouille un canal précis.

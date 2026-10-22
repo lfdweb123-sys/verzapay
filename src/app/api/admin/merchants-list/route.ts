@@ -16,6 +16,14 @@ export async function GET(req: NextRequest) {
     const db = adminDb();
     const snap = await db.collection("users").limit(1000).get();
     
+    const approvedSnap = await db.collection("companies").where("kycStatus", "==", "approved").get();
+    const verifiedUids = new Set<string>();
+    for (const c of approvedSnap.docs) {
+      const cd = c.data();
+      if (cd.ownerUid) verifiedUids.add(cd.ownerUid);
+      if (Array.isArray(cd.members)) cd.members.forEach((m: string) => verifiedUids.add(m));
+    }
+
     const merchants = snap.docs.map((d) => {
       const data = d.data();
       
@@ -40,6 +48,7 @@ export async function GET(req: NextRequest) {
         createdAt: createdAt,
         disabled: data.disabled ?? false,
         suspended: data.suspended ?? false,
+        identityVerified: verifiedUids.has(d.id),
       };
     });
 

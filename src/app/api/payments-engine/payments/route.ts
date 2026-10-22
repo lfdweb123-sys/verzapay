@@ -359,6 +359,25 @@ export async function POST(req: NextRequest) {
     await txRef.set(tx);
     console.log(`${LOG_PREFIX} Transaction Firestore créée: ${txRef.id} (joonapayPaymentId=${tx.joonapayPaymentId})`);
 
+    // Mémorisation du client pour le sélectionner rapidement lors des
+    // prochaines créations de lien — non bloquant.
+    try {
+      const clientId = String(customerPhone).replace(/\D/g, "");
+      if (clientId) {
+        await db.collection("companies").doc(companyId).collection("clients").doc(clientId).set(
+          {
+            name: customerName?.trim() || "",
+            phone: customerPhone,
+            email: customerEmail ?? "",
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (clientErr) {
+      console.error(`${LOG_PREFIX} Erreur enregistrement client (non bloquant):`, clientErr);
+    }
+
     const checkoutUrl = joonaRes.data?.payment_link ?? "#";
 
     // Notification push

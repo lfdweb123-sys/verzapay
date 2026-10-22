@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Copy, ExternalLink, Loader2, CheckCircle2, Smartphone, CreditCard, Landmark, Layers } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Loader2, CheckCircle2, Smartphone, CreditCard, Landmark, Layers, Users, Search } from "lucide-react";
 import Link from "next/link";
 import { useCompany } from "@/lib/company-context";
 import { useAuth } from "@/lib/auth-context";
@@ -13,6 +13,12 @@ import { usePreferences } from "@/lib/preferences-context";
 type PaymentChannel = "ANY" | "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER";
 
 type AvailableChannel = { channel: string; name: string };
+type PhoneCountry = { code: string; name: string; indicator: string };
+type SavedClient = { id: string; name: string; phone: string; email: string };
+
+function normalizeIndicator(ind: string): string {
+  return ind.startsWith("+") ? ind : `+${ind}`;
+}
 
 // Mappe un channel JoonaPay vers son icône
 function iconForChannel(channel: string) {
@@ -31,6 +37,12 @@ export default function NewPaymentPage() {
   const [description, setDescription] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  // Indicatif pays sélectionné + liste des pays et clients enregistrés
+  const [countries, setCountries] = useState<PhoneCountry[]>([]);
+  const [countryCode, setCountryCode] = useState("");
+  const [savedClients, setSavedClients] = useState<SavedClient[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [showClients, setShowClients] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   // Pré-sélection par défaut : "ANY" — le client voit toutes les méthodes
@@ -58,6 +70,64 @@ export default function NewPaymentPage() {
       .finally(() => setMethodsLoading(false));
   }, [activeCompany?.id, user?.uid]);
 
+  // Pays disponibles (indicatifs) — présélection du pays de l'entreprise
+  useEffect(() => {
+    fetch("/api/public/countries")
+      .then((r) => r.json())
+      .then((data) => {
+        const list: PhoneCountry[] = (data.countries ?? [])
+          .filter((c: { paymentEnabled: boolean }) => c.paymentEnabled)
+          .map((c: PhoneCountry) => ({ code: c.code, name: c.name, indicator: normalizeIndicator(c.indicator) }));
+        setCountries(list);
+        const companyCountry = String(activeCompany?.country ?? "").toLowerCase();
+        const match = list.find((c) => c.code.toLowerCase() === companyCountry || c.name.toLowerCase() === companyCountry);
+        setCountryCode((prev) => prev || match?.code || list[0]?.code || "");
+      })
+      .catch(() => setCountries([]));
+  }, [activeCompany?.id]);
+
+  // Clients enregistrés (lecture serveur, une seule requête)
+  useEffect(() => {
+    if (!activeCompany || !user) return;
+    fetch(`/api/clients?companyId=${activeCompany.id}&uid=${user.uid}`)
+      .then((r) => r.json())
+      .then((data) => setSavedClients(data.clients ?? []))
+      .catch(() => setSavedClients([]));
+  }, [activeCompany?.id, user?.uid]);
+
+  const selectedCountry = countries.find((c) => c.code === countryCode);
+
+  // Numéro complet envoyé à l'API : indicatif choisi + numéro local.
+  // Si le marchand saisit déjà un numéro international (+...), on le garde tel quel.
+  function buildFullPhone(): string {
+    const raw = customerPhone.trim();
+    if (raw.startsWith("+")) return "+" + raw.replace(/\D/g, "");
+    const digits = raw.replace(/\D/g, "").replace(/^0+/, "");
+    return `${selectedCountry?.indicator ?? ""}${digits}`;
+  }
+
+  function pickClient(c: SavedClient) {
+    setCustomerName(c.name);
+    setCustomerEmail(c.email);
+    const match = [...countries]
+      .sort((a, b) => b.indicator.length - a.indicator.length)
+      .find((ct) => c.phone.startsWith(ct.indicator));
+    if (match) {
+      setCountryCode(match.code);
+      setCustomerPhone(c.phone.slice(match.indicator.length));
+    } else {
+      setCustomerPhone(c.phone);
+    }
+    setShowClients(false);
+    setClientSearch("");
+  }
+
+  const filteredClients = savedClients.filter((c) => {
+    const q = clientSearch.toLowerCase();
+    if (!q) return true;
+    return c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.email.toLowerCase().includes(q);
+  });
+
   if (activeCompany?.kycStatus !== "approved") {
     return (
       <div className="max-w-lg mx-auto space-y-4">
@@ -79,6 +149,11 @@ export default function NewPaymentPage() {
     e.preventDefault();
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum < 100) { show("Montant minimum : 100 XOF", "error"); return; }
+
+    if (buildFullPhone().replace(/\D/g, "").length < 8) {
+      show("Le numéro de téléphone du client est requis", "error");
+      return;
+    }
 
     if (customerEmail.trim() && !isValidEmail(customerEmail.trim())) {
       show("Adresse email invalide", "error");
@@ -106,7 +181,7 @@ export default function NewPaymentPage() {
           currency: "XOF",
           description: description || "Paiement Verzapay",
           customerName,
-          customerPhone,
+          customerPhone: buildFullPhone(),
           customerEmail: customerEmail.trim() || undefined,
           imageBase64,
           uid: user.uid,
@@ -171,14 +246,67 @@ export default function NewPaymentPage() {
             <label className="label-base">Description</label>
             <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex : Commande #1234" className="input-base" />
           </div>
+          {savedClients.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowClients((v) => !v)}
+                className="btn-secondary text-sm"
+              >
+                <Users size={15} /> Choisir un client enregistré ({savedClients.length})
+              </button>
+              {showClients && (
+                <div className="mt-2 border border-ink-200 rounded-lg overflow-hidden">
+                  <div className="relative border-b border-ink-100">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+                    <input
+                      type="text"
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      placeholder="Rechercher un client…"
+                      className="w-full h-10 pl-9 pr-3 text-sm outline-none bg-transparent"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-ink-50">
+                    {filteredClients.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => pickClient(c)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-ink-50 transition-colors"
+                      >
+                        <p className="font-medium text-ink-900">{c.name || "Client"}</p>
+                        <p className="text-xs text-ink-500">{c.phone}{c.email ? ` · ${c.email}` : ""}</p>
+                      </button>
+                    ))}
+                    {filteredClients.length === 0 && (
+                      <p className="text-sm text-ink-400 text-center py-4">Aucun client trouvé</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label-base">Nom du client</label>
               <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Kofi Mensah" className="input-base" />
             </div>
             <div>
-              <label className="label-base">Téléphone</label>
-              <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+229 96 00 00 00" className="input-base" />
+              <label className="label-base">Téléphone *</label>
+              <div className="flex gap-2">
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="input-base w-auto max-w-[45%] shrink-0"
+                  aria-label="Indicatif du pays"
+                >
+                  {countries.map((c) => (
+                    <option key={c.code} value={c.code}>{c.name} ({c.indicator})</option>
+                  ))}
+                </select>
+                <input type="tel" required value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="96 00 00 00" className="input-base" />
+              </div>
             </div>
           </div>
           <div>
