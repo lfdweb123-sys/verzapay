@@ -13,8 +13,9 @@ import { CompanyLegalInfo } from "@/components/settings/company-legal-info";
 import { ApiKeyManager } from "@/components/settings/api-key-manager";
 import { EmailChangeRequest } from "@/components/settings/email-change-request";
 import { DisplaySettings } from "@/components/settings/display-settings";
+import { FeesSettings } from "@/components/settings/fees-settings";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { Loader2, User, Building2, ShieldCheck, Lock, Key, ChevronRight, Monitor } from "lucide-react";
+import { Loader2, User, Building2, ShieldCheck, Lock, Key, ChevronRight, Monitor, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -23,6 +24,7 @@ const TABS = [
   { id: "security", label: "Sécurité", icon: Lock },
   { id: "company", label: "Entreprise", icon: Building2 },
   { id: "api", label: "Clé API", icon: Key },
+  { id: "fees", label: "Frais", icon: Coins },
   { id: "display", label: "Affichage", icon: Monitor },
 ] as const;
 
@@ -171,6 +173,13 @@ export default function SettingsPage() {
       {tab === "api" && activeCompany && (
         <div className="max-w-7xl">
           <ApiKeyManager company={activeCompany} />
+        </div>
+      )}
+
+      {/* Onglet Frais */}
+      {tab === "fees" && activeCompany && (
+        <div className="space-y-5 max-w-7xl">
+          <FeesSettings key={activeCompany.id} company={activeCompany} />
         </div>
       )}
 

@@ -165,6 +165,7 @@ export async function POST(req: NextRequest) {
       merchant_transaction_id: poRef.id,
       description: body.note ?? "Décaissement",
       currency: country.currency,
+      fee_bearer: company.feesPayout ?? "MERCHANT",
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
       payouts: [
         {

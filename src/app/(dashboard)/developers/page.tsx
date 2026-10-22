@@ -1,5 +1,6 @@
 "use client";
 
+import { ApiTester } from "@/components/developers/api-tester";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useCompany } from "@/lib/company-context";
@@ -308,6 +309,9 @@ app.post('/webhook/verzapay', (req, res) => {
           Voir la référence complète <ArrowRight size={14} />
         </Link>
       </div>
+
+      {/* Test de l'API */}
+      <ApiTester />
 
       {/* URL Webhook */}
       <div className="card-base p-5 space-y-4">

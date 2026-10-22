@@ -1,3 +1,4 @@
+import { alertLargePaymentSafe } from "@/lib/fraud-alert";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendPushAndStore } from "@/lib/push";
@@ -205,6 +206,19 @@ export async function POST(req: NextRequest) {
           createdAt: Date.now(),
         });
         console.log(`${LOG_PREFIX} [payment] Entrée ledger créée pour reference=${paymentRequestUuid}`);
+
+        // Anti-fraude : simple alerte à l'admin principal pour un gros paiement (ne bloque rien)
+        await alertLargePaymentSafe({
+          companyId,
+          paymentId: txDoc.id,
+          amount: tx.amount,
+          currency: tx.currency,
+          method: tx.method,
+          customerName: tx.customerName,
+          customerPhone: tx.customerPhone,
+          customerEmail: tx.customerEmail,
+          merchantReference: tx.merchantReference,
+        });
 
         const companySnap = await db.collection("companies").doc(companyId).get();
         const ownerUid: string = companySnap.data()?.ownerUid;

@@ -1,4 +1,5 @@
 // app/api/cron/reconcile-payments/route.ts
+import { alertLargePaymentSafe } from "@/lib/fraud-alert";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { getJoonapayPayment } from "@/lib/joonapay";
@@ -196,6 +197,19 @@ export async function GET(req: NextRequest) {
           });
 
           console.log(`${LOG_PREFIX} tx=${txDoc.id} -> wallet companyId=${companyId} crédité de ${netAmount}, nouveau solde=${newBalance}`);
+
+          // Anti-fraude : simple alerte à l'admin principal pour un gros paiement (ne bloque rien)
+          await alertLargePaymentSafe({
+            companyId,
+            paymentId: txDoc.id,
+            amount: tx.amount,
+            currency: tx.currency,
+            method: tx.method,
+            customerName: tx.customerName,
+            customerPhone: tx.customerPhone,
+            customerEmail: tx.customerEmail,
+            merchantReference: tx.merchantReference,
+          });
 
           // Notification marchand webhook
           await notifyMerchantWebhookSafe(

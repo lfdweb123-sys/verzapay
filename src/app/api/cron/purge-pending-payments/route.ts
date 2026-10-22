@@ -150,6 +150,36 @@ async function purgeTransactions(
   return deleted;
 }
 
+/**
+ * Supprime les notifications déjà lues (champ read === true).
+ * Filtre sur un seul champ : aucun index composite nécessaire.
+ */
+async function purgeReadNotifications(
+  db: FirebaseFirestore.Firestore
+): Promise<number> {
+  let deleted = 0;
+
+  for (;;) {
+    const snapshot = await db
+      .collection("notifications")
+      .where("read", "==", true)
+      .limit(BATCH_SIZE)
+      .get();
+
+    if (snapshot.empty) break;
+
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    deleted += snapshot.size;
+
+    if (snapshot.size < BATCH_SIZE) break;
+  }
+
+  console.log(`${LOG_PREFIX} ${deleted} notification(s) lue(s) supprimée(s)`);
+  return deleted;
+}
+
 type InitialState =
   | { mode: "initial"; acquired: true }
   | { mode: "daily"; acquired: false }
@@ -226,6 +256,7 @@ export async function GET(req: NextRequest) {
 
       try {
         const deleted = await purgeTransactions(db, true);
+        const deletedNotifications = await purgeReadNotifications(db);
 
         await markerRef.set(
           {
@@ -246,6 +277,7 @@ export async function GET(req: NextRequest) {
           ok: true,
           mode: "initial",
           deleted,
+          deletedNotifications,
           message:
             "Tous les paiements pending et failed ont été traités. Les prochaines exécutions appliqueront la règle des 7 jours.",
         });
@@ -271,6 +303,7 @@ export async function GET(req: NextRequest) {
     console.log(`${LOG_PREFIX} Début du nettoyage quotidien`);
 
     const deleted = await purgeTransactions(db, false);
+    const deletedNotifications = await purgeReadNotifications(db);
 
     console.log(
       `${LOG_PREFIX} Nettoyage quotidien terminé : ${deleted} suppression(s)`
@@ -280,6 +313,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       mode: "daily",
       deleted,
+      deletedNotifications,
       message:
         "Les paiements pending et failed âgés d'au moins 7 jours ont été traités.",
     });

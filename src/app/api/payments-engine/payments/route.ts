@@ -169,6 +169,7 @@ export async function POST(req: NextRequest) {
       customerEmail,
       imageBase64,
       uid,
+      feeBearer,
       // "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER" | "ANY" | undefined.
       // "ANY" (ou absent) = on ne fixe rien : JoonaPay affichera toutes les
       // méthodes actives pour ce pays sur sa page de paiement et le CLIENT
@@ -306,6 +307,8 @@ export async function POST(req: NextRequest) {
       customer_name: resolvedCustomerName,
       customer_phone: customerPhone ?? undefined,
       customer_email: customerEmail ?? undefined,
+      // Frais à charge : choix ponctuel sinon réglage de l'entreprise (Paramètres > Frais)
+      fee_bearer: (feeBearer ?? company.feesCollection ?? "MERCHANT") as "MERCHANT" | "CUSTOMER",
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
     };

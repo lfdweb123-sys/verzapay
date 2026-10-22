@@ -5,7 +5,7 @@
 // GET /api/v1/developer/misc pour supporter tous les marchés actifs.
 
 import type { JoonapayCountry, JoonapayPaymentMethod, JoonapayEntity } from "@/lib/joonapay";
-import { listJoonapayEntities, createJoonapayEntity } from "@/lib/joonapay";
+import { listJoonapayEntities, createJoonapayEntity, updateJoonapayEntity } from "@/lib/joonapay";
 
 /**
  * Résout le pays JoonaPay à partir d'un numéro E.164 et/ou du pays de l'entreprise.
@@ -105,4 +105,85 @@ export async function findOrCreateEntity(params: {
     payment_method_uuid: params.paymentMethodUuid,
   });
   return created.data.entity;
+}
+
+/**
+ * Résout la méthode "virement bancaire" (BANK_TRANSFER) active pour les
+ * décaissements dans un pays donné.
+ */
+export function resolveBankTransferMethod(
+  methods: JoonapayPaymentMethod[],
+  countryCode: string
+): JoonapayPaymentMethod | null {
+  return (
+    methods.find(
+      (m) => m.country.code === countryCode && m.channel === "BANK_TRANSFER" && m.transfer_status === "active"
+    ) ?? null
+  );
+}
+
+export interface BankDetails {
+  bankName: string;
+  accountHolderName: string;
+  iban?: string | null;
+  bicSwift?: string | null;
+  accountNumber?: string | null;
+  sortCode?: string | null;
+  routingNumber?: string | null;
+}
+
+/**
+ * Trouve (par téléphone) ou crée le bénéficiaire, puis lui rattache le compte
+ * bancaire fourni s'il n'existe pas déjà (même IBAN / même numéro de compte).
+ */
+export async function findOrCreateBankEntity(params: {
+  phone: string;
+  name: string;
+  countryCode: string;
+  countryUuid: string;
+  paymentMethodUuid: string;
+  bank: BankDetails;
+}): Promise<JoonapayEntity> {
+  const existing = await listJoonapayEntities({ phone: params.phone, per_page: 5 });
+  let entity: JoonapayEntity | undefined = existing.data?.entities?.[0];
+
+  if (!entity) {
+    const created = await createJoonapayEntity({
+      name: params.name,
+      type: "VENDOR",
+      phone: params.phone,
+      country_code: params.countryCode,
+      country_uuid: params.countryUuid,
+      payment_method_uuid: params.paymentMethodUuid,
+    });
+    entity = created.data.entity;
+  }
+
+  const b = params.bank;
+  const alreadyThere = entity.bank_accounts?.some(
+    (acc) =>
+      (b.iban && acc.iban === b.iban) ||
+      (b.accountNumber && acc.account_number === b.accountNumber)
+  );
+
+  if (!alreadyThere) {
+    const updated = await updateJoonapayEntity(entity.uuid, {
+      bank_accounts: [
+        {
+          country_uuid: params.countryUuid,
+          bank_name: b.bankName,
+          account_holder_name: b.accountHolderName,
+          iban: b.iban ?? undefined,
+          bic_swift: b.bicSwift ?? undefined,
+          account_number: b.accountNumber ?? undefined,
+          sort_code: b.sortCode ?? undefined,
+          routing_number: b.routingNumber ?? undefined,
+          is_default: true,
+        },
+      ],
+    });
+    entity = updated.data.entity;
+  }
+
+  return entity;
 }

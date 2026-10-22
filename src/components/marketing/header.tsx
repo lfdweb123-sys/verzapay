@@ -6,10 +6,10 @@ import { Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { href: "#fonctionnement", label: "Fonctionnement" },
-  { href: "#paiements", label: "Paiements" },
-  { href: "#tarifs", label: "Tarifs" },
-  { href: "#faq", label: "FAQ" },
+  { href: "/#fonctionnement", label: "Fonctionnement" },
+  { href: "/#paiements", label: "Paiements" },
+  { href: "/#tarifs", label: "Tarifs" },
+  { href: "/#faq", label: "FAQ" },
 ];
 
 export function MarketingHeader() {
@@ -38,9 +38,9 @@ export function MarketingHeader() {
 
         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
-            <a key={l.href} href={l.href} className="text-sm text-ink-600 hover:text-ink-900 font-medium transition-colors">
+            <Link key={l.href} href={l.href} className="text-sm text-ink-600 hover:text-ink-900 font-medium transition-colors">
               {l.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
