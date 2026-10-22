@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, ArrowDownLeft, ArrowUpRight, CreditCard, Users,
+  Bug, LayoutDashboard, ArrowDownLeft, ArrowUpRight, CreditCard, Users,
   Wallet, Settings, Code2, LifeBuoy, ChevronLeft, ChevronRight,
   Plus, Check, ChevronsUpDown, Building2, BookOpen, LogOut,
   UsersRound, ShieldAlert, X, Store,
@@ -35,6 +35,7 @@ const NAV: NavItem[] = [
   { href: "/developers", label: "Développeur", icon: Code2, section: "SYSTÈME" },
   { href: "/settings", label: "Paramètres", icon: Settings },
   { href: "/support", label: "Support", icon: LifeBuoy },
+  { href: "/bug-report", label: "Signaler un bug", icon: Bug },
 ];
 
 interface SidebarProps {
