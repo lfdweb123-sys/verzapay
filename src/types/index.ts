@@ -70,6 +70,9 @@ export interface Company {
   legalName?: string;
   sector?: string;
   country: string;
+  // Frais à charge : MERCHANT = le marchand / CUSTOMER = le client (encaissement) ou le bénéficiaire (décaissement)
+  feesCollection?: "MERCHANT" | "CUSTOMER";
+  feesPayout?: "MERCHANT" | "CUSTOMER";
   ownerUid: string;
   members: string[]; // uids
   role?: "Root" | "Admin" | "Membre";
@@ -177,6 +180,8 @@ export interface Payout {
   method: PaymentMethod;
   recipientPhone?: string | null;
   recipientName?: string | null;
+  recipientBank?: string | null; // virement bancaire : nom de la banque
+  recipientAccountLast4?: string | null; // virement bancaire : 4 derniers caractères du compte/IBAN
   status: PayoutStatus;
   requestedBy: string; // uid
   approvedBy?: string | null;

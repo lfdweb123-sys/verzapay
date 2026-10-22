@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { createJoonapayPayout, getJoonapayMisc } from "@/lib/joonapay";
-import { resolveCountry, resolvePaymentMethod, findOrCreateEntity } from "@/lib/joonapay-helpers";
+import { resolveCountry, resolvePaymentMethod, findOrCreateEntity, resolveBankTransferMethod, findOrCreateBankEntity } from "@/lib/joonapay-helpers";
 import { sendPushAndStore } from "@/lib/push";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { notifyAdmin } from "@/lib/notify-admin";
@@ -12,7 +12,7 @@ import type { Payout } from "@/types";
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
-    const { companyId, amount, currency, recipientPhone, recipientName, note, uid } =
+    const { companyId, amount, currency, recipientPhone, recipientName, note, uid, method, bank } =
       parseOrThrow(createPayoutSchema, raw);
 
     // NOTE: `recipientOperator` n'est pas (encore) déclaré dans createPayoutSchema,
@@ -58,18 +58,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const methodResolution = resolvePaymentMethod(miscRes.data?.payment_methods ?? [], country.code, {
+    const isBank = method === "bank_transfer";
+    if (isBank && !bank) {
+      return NextResponse.json({ error: "Les coordonnées bancaires du bénéficiaire sont requises." }, { status: 400 });
+    }
+    if (isBank && !bank!.iban && !bank!.accountNumber) {
+      return NextResponse.json({ error: "Renseignez l'IBAN ou le numéro de compte du bénéficiaire." }, { status: 400 });
+    }
+
+    const methodResolution = isBank ? null : resolvePaymentMethod(miscRes.data?.payment_methods ?? [], country.code, {
       requireTransferEnabled: true,
       explicitMethodCode: recipientOperator ?? undefined,
     });
 
-    if (methodResolution.status === "none") {
+    const bankMethod = isBank ? resolveBankTransferMethod(miscRes.data?.payment_methods ?? [], country.code) : null;
+    if (isBank && !bankMethod) {
+      return NextResponse.json(
+        { error: `Le virement bancaire n'est pas disponible pour les décaissements en ${country.name}.` },
+        { status: 400 }
+      );
+    }
+
+    if (methodResolution && methodResolution.status === "none") {
       return NextResponse.json(
         { error: `Aucun opérateur mobile money actif pour les décaissements en ${country.name}.` },
         { status: 400 }
       );
     }
-    if (methodResolution.status === "ambiguous") {
+    if (methodResolution && methodResolution.status === "ambiguous") {
       return NextResponse.json(
         {
           error: "Plusieurs opérateurs mobile money sont disponibles pour ce pays. Précisez l'opérateur du bénéficiaire.",
@@ -79,19 +95,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const paymentMethod = methodResolution.method;
+    const paymentMethod = isBank ? bankMethod! : (methodResolution as { status: "resolved"; method: NonNullable<typeof bankMethod> }).method;
 
     // ── Résolution du bénéficiaire JoonaPay (entity_uuid) ───────────────────
     // Recherche par téléphone ; création automatique si inexistant.
     let entity;
     try {
-      entity = await findOrCreateEntity({
-        phone: recipientPhone,
-        name: recipientName?.trim() || "Bénéficiaire Verzapay",
-        countryCode: country.code,
-        countryUuid: country.uuid,
-        paymentMethodUuid: paymentMethod.uuid,
-      });
+      entity = isBank
+        ? await findOrCreateBankEntity({
+            phone: recipientPhone,
+            name: recipientName?.trim() || bank!.accountHolderName,
+            countryCode: country.code,
+            countryUuid: country.uuid,
+            paymentMethodUuid: paymentMethod.uuid,
+            bank: bank!,
+          })
+        : await findOrCreateEntity({
+            phone: recipientPhone,
+            name: recipientName?.trim() || "Bénéficiaire Verzapay",
+            countryCode: country.code,
+            countryUuid: country.uuid,
+            paymentMethodUuid: paymentMethod.uuid,
+          });
     } catch (entityErr) {
       console.error("findOrCreateEntity:", entityErr);
       return NextResponse.json(
@@ -129,7 +154,7 @@ export async function POST(req: NextRequest) {
         currency: currency ?? country.currency,
         description: note ?? "Reversement Verzapay",
         merchant_transaction_id: poRef.id,
-        fee_bearer: "MERCHANT",
+        fee_bearer: (company.feesPayout ?? "MERCHANT") as "MERCHANT" | "CUSTOMER",
         payouts: [
           {
             entity_uuid: entity.uuid,
@@ -162,7 +187,7 @@ export async function POST(req: NextRequest) {
       amount,
       balanceAfter: newBalance,
       reference: joonapayGroupUuid ?? "manual",
-      label: `Retrait → ${recipientPhone}`,
+      label: isBank ? `Virement bancaire → ${bank!.bankName}` : `Retrait → ${recipientPhone}`,
       createdAt: Date.now(),
     });
 
@@ -172,9 +197,11 @@ export async function POST(req: NextRequest) {
       joonapayPayoutId: joonapayGroupUuid,
       amount,
       currency: country.currency,
-      method: "mobile_money",
+      method: isBank ? "bank_transfer" : "mobile_money",
       recipientPhone,
-      recipientName: recipientName ?? null,
+      recipientName: recipientName ?? (isBank ? bank!.accountHolderName : null),
+      recipientBank: isBank ? bank!.bankName : null,
+      recipientAccountLast4: isBank ? (bank!.iban ?? bank!.accountNumber ?? "").slice(-4) || null : null,
       status: "processing",
       requestedBy: uid,
       approvedBy: null,

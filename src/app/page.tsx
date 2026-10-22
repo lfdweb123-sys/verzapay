@@ -10,6 +10,7 @@ import { Faq } from "@/components/marketing/faq";
 import { FinalCta } from "@/components/marketing/final-cta";
 import { MarketingFooter } from "@/components/marketing/footer";
 import { ScrollToTop } from "@/components/marketing/scroll-to-top";
+import { WhatsAppChat } from "@/components/marketing/whatsapp-chat";
 
 export default function HomePage() {
   return (
@@ -28,6 +29,7 @@ export default function HomePage() {
       </main>
       <MarketingFooter />
       <ScrollToTop />
+      <WhatsAppChat />
     </div>
   );
 }

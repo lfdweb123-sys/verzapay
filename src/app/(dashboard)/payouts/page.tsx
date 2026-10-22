@@ -27,6 +27,13 @@ export default function PayoutsPage() {
   const [recipientName, setRecipientName] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Virement bancaire
+  const [method, setMethod] = useState<"mobile_money" | "bank_transfer">("mobile_money");
+  const [bankName, setBankName] = useState("");
+  const [accountHolder, setAccountHolder] = useState("");
+  const [iban, setIban] = useState("");
+  const [bicSwift, setBicSwift] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
 
   const requires2FA = appUser?.transactionTwoFactorEnabled !== false;
 
@@ -45,7 +52,14 @@ export default function PayoutsPage() {
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum < 500) { show("Montant minimum : 500 XOF", "error"); return; }
     if (amountNum > (activeCompany?.walletBalance ?? 0)) { show("Solde insuffisant", "error"); return; }
-    if (!phone) { show("Renseignez le numéro Mobile Money du bénéficiaire", "error"); return; }
+    if (!phone) {
+      show(method === "bank_transfer" ? "Renseignez le téléphone du bénéficiaire" : "Renseignez le numéro Mobile Money du bénéficiaire", "error");
+      return;
+    }
+    if (method === "bank_transfer") {
+      if (!bankName.trim() || !accountHolder.trim()) { show("Renseignez la banque et le titulaire du compte", "error"); return; }
+      if (!iban.trim() && !accountNumber.trim()) { show("Renseignez l'IBAN ou le numéro de compte", "error"); return; }
+    }
 
     if (requires2FA) {
       setShow2FA(true);
@@ -62,7 +76,12 @@ export default function PayoutsPage() {
       const res = await fetch("/api/payments-engine/payouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: activeCompany.id, amount: amountNum, currency: "XOF", recipientPhone: phone, recipientName, note, uid: user.uid }),
+        body: JSON.stringify({ companyId: activeCompany.id, amount: amountNum, currency: "XOF", recipientPhone: phone, recipientName, note, uid: user.uid,
+          method,
+          bank: method === "bank_transfer"
+            ? { bankName: bankName.trim(), accountHolderName: accountHolder.trim(), iban: iban.trim() || null, bicSwift: bicSwift.trim() || null, accountNumber: accountNumber.trim() || null }
+            : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur serveur");
@@ -70,6 +89,7 @@ export default function PayoutsPage() {
       setShowModal(false);
       setShow2FA(false);
       setAmount(""); setPhone(""); setRecipientName(""); setNote("");
+      setBankName(""); setAccountHolder(""); setIban(""); setBicSwift(""); setAccountNumber("");
     } catch (err) {
       show((err as Error).message, "error");
     } finally {
@@ -150,7 +170,7 @@ export default function PayoutsPage() {
                   <tr key={po.id} className="hover:bg-ink-50/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <p className="font-medium text-ink-900">{po.recipientName ?? "—"}</p>
-                      <p className="text-xs text-ink-500">{po.recipientPhone ?? ""}</p>
+                      <p className="text-xs text-ink-500">{po.method === "bank_transfer" ? `${po.recipientBank ?? "Virement bancaire"}${po.recipientAccountLast4 ? ` ••${po.recipientAccountLast4}` : ""}` : (po.recipientPhone ?? "")}</p>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap"><PayoutBadge status={po.status} /></td>
                     <td className="px-4 py-3 whitespace-nowrap text-xs text-ink-500">{formatDateTime(po.createdAt)}</td>
@@ -180,9 +200,58 @@ export default function PayoutsPage() {
                 <input type="number" min="500" required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="10 000" className="input-base" />
               </div>
               <div>
-                <label className="label-base">Téléphone Mobile Money *</label>
-                <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+229 96 00 00 00" className="input-base" />
+                <label className="label-base">Mode de décaissement</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMethod("mobile_money")}
+                    className={`flex-1 h-10 rounded-lg border text-sm font-medium transition-colors ${method === "mobile_money" ? "border-brand-700 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-600 hover:bg-ink-50"}`}
+                  >
+                    Mobile Money
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMethod("bank_transfer")}
+                    className={`flex-1 h-10 rounded-lg border text-sm font-medium transition-colors ${method === "bank_transfer" ? "border-brand-700 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-600 hover:bg-ink-50"}`}
+                  >
+                    Virement bancaire
+                  </button>
+                </div>
               </div>
+              <div>
+                <label className="label-base">{method === "bank_transfer" ? "Téléphone du bénéficiaire *" : "Téléphone Mobile Money *"}</label>
+                <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+229 96 00 00 00" className="input-base" />
+                {method === "bank_transfer" && (
+                  <p className="text-xs text-ink-400 mt-1.5">Son indicatif détermine le pays de la banque.</p>
+                )}
+              </div>
+              {method === "bank_transfer" && (
+                <div className="space-y-3 rounded-lg border border-ink-200 p-3">
+                  <div>
+                    <label className="label-base">Banque *</label>
+                    <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Nom de la banque" className="input-base" />
+                  </div>
+                  <div>
+                    <label className="label-base">Titulaire du compte *</label>
+                    <input type="text" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} placeholder="Nom complet" className="input-base" />
+                  </div>
+                  <div>
+                    <label className="label-base">IBAN</label>
+                    <input type="text" value={iban} onChange={(e) => setIban(e.target.value)} placeholder="BJ00 0000 0000 0000 0000 0000 0000" className="input-base" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label-base">Numéro de compte</label>
+                      <input type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} className="input-base" />
+                    </div>
+                    <div>
+                      <label className="label-base">BIC / SWIFT</label>
+                      <input type="text" value={bicSwift} onChange={(e) => setBicSwift(e.target.value)} className="input-base" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-ink-400">Renseignez l&apos;IBAN ou le numéro de compte.</p>
+                </div>
+              )}
               <div>
                 <label className="label-base">Nom du bénéficiaire</label>
                 <input type="text" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Kofi Mensah" className="input-base" />

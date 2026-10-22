@@ -1,5 +1,6 @@
 // app/api/cron/purge-pending-payments/route.ts
-// Supprime les paiements restés "pending" depuis plus de 7 jours.
+// Supprime (1) les paiements restés "pending" depuis plus de 7 jours
+// et (2) les notifications déjà lues.
 // À déclencher une fois par jour via cron-job.org :
 //   GET https://<votre-domaine>/api/cron/purge-pending-payments
 //   en-tête  x-cron-secret: <CRON_RECONCILE_SECRET>   (ou ?secret=...)
@@ -49,7 +50,21 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(`${LOG_PREFIX} ${deleted} paiement(s) pending supprimé(s) (> 7 jours)`);
-    return NextResponse.json({ ok: true, deleted });
+
+    // Notifications déjà lues : supprimées dès qu'elles ont été lues une fois
+    let deletedNotifications = 0;
+    for (;;) {
+      const nSnap = await db.collection("notifications").where("read", "==", true).limit(BATCH_SIZE).get();
+      if (nSnap.empty) break;
+      const nBatch = db.batch();
+      nSnap.docs.forEach((d) => nBatch.delete(d.ref));
+      await nBatch.commit();
+      deletedNotifications += nSnap.size;
+      if (nSnap.size < BATCH_SIZE) break;
+    }
+    console.log(`${LOG_PREFIX} ${deletedNotifications} notification(s) lue(s) supprimée(s)`);
+
+    return NextResponse.json({ ok: true, deleted, deletedNotifications });
   } catch (err) {
     console.error(`${LOG_PREFIX} Erreur:`, err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

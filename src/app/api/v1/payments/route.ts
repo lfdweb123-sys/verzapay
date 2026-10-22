@@ -28,6 +28,7 @@ const publicCreatePaymentSchema = z.object({
   // page JoonaPay. Sinon verrouille un canal précis.
   channel: z.enum(["any", "mobile_money", "credit_card", "bank_transfer"]).optional().nullable(),
   merchant_reference: z.string().max(128).optional().nullable(),
+  fee_bearer: z.enum(["merchant", "customer"]).optional().nullable(), // sinon réglage Paramètres > Frais
   webhook_url: z.string().url().optional().nullable(), // override ponctuel, sinon company.webhookUrl
 });
 
@@ -178,6 +179,9 @@ export async function POST(req: NextRequest) {
       customer_name: resolvedCustomerName,
       customer_phone: body.customer_phone ?? undefined,
       customer_email: body.customer_email ?? undefined,
+      fee_bearer: body.fee_bearer
+        ? (body.fee_bearer.toUpperCase() as "MERCHANT" | "CUSTOMER")
+        : (company.feesCollection ?? "MERCHANT"),
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
     });

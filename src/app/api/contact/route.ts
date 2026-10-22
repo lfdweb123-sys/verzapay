@@ -4,15 +4,21 @@ import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { contactSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isSpamContact } from "@/lib/spam";
+import { verifyCaptcha } from "@/lib/captcha";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { name, email, subject, message, source, uid, companyId } = parseOrThrow(contactSchema, raw);
 
+    // Captcha calcul (le formulaire envoie captchaToken + captchaAnswer)
+    if (!verifyCaptcha(raw?.captchaToken, raw?.captchaAnswer)) {
+      return NextResponse.json({ error: "Vérification anti-robot incorrecte. Réessayez." }, { status: 400 });
+    }
+
     // Anti-spam : messages aléatoires (ex. "JdGfuYjkbbpofRHvSmBrXjk"). Réponse
     // OK silencieuse : rien n'est enregistré ni envoyé, et le spammeur n'est pas informé.
-    if (isSpamContact({ name, subject, message })) {
+    if (isSpamContact({ name, subject, message, email })) {
       return NextResponse.json({ ok: true });
     }
 

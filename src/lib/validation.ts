@@ -48,6 +48,7 @@ export const createPaymentSchema = z.object({
   customerPhone: z.string().min(6, "Le numéro de téléphone du client est requis").max(30),
   customerEmail: z.string().email().max(150).optional().nullable(),
   imageBase64: base64Image,
+  feeBearer: z.enum(["MERCHANT", "CUSTOMER"]).optional().nullable(),
   uid,
   // Méthode de paiement souhaitée par le marchand.
   // "ANY" (ou absent) = pas de méthode imposée : JoonaPay affichera toutes
@@ -68,6 +69,20 @@ export const createPayoutSchema = z.object({
   // Optionnel : si absent, resolvePaymentMethod retombe sur sa propre logique
   // de résolution (ou retourne "ambiguous" si plusieurs opérateurs collent).
   recipientOperator: shortText(60),
+  // Mode de décaissement : mobile money (défaut) ou virement bancaire.
+  method: z.enum(["mobile_money", "bank_transfer"]).optional(),
+  bank: z
+    .object({
+      bankName: z.string().min(2).max(120),
+      accountHolderName: z.string().min(2).max(120),
+      iban: z.string().max(40).optional().nullable(),
+      bicSwift: z.string().max(20).optional().nullable(),
+      accountNumber: z.string().max(40).optional().nullable(),
+      sortCode: z.string().max(20).optional().nullable(),
+      routingNumber: z.string().max(20).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
   note: shortText(200),
   uid,
 });

@@ -49,6 +49,9 @@ export default function NewPaymentPage() {
   // actives sur la page JoonaPay et choisit lui-même. Le marchand peut
   // restreindre à une méthode précise s'il le souhaite.
   const [channel, setChannel] = useState<PaymentChannel>("ANY");
+  // Frais à charge : par défaut le réglage de l'entreprise, modifiable ponctuellement
+  const [feeBearer, setFeeBearer] = useState<"MERCHANT" | "CUSTOMER" | null>(null);
+  const effectiveFeeBearer = feeBearer ?? activeCompany?.feesCollection ?? "MERCHANT";
   const [loading, setLoading] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [result, setResult] = useState<{ checkoutUrl: string; paymentId: string } | null>(null);
@@ -185,6 +188,7 @@ export default function NewPaymentPage() {
           customerEmail: customerEmail.trim() || undefined,
           imageBase64,
           uid: user.uid,
+          feeBearer: effectiveFeeBearer,
           channel, // "ANY" | "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER"
         }),
       });
@@ -227,6 +231,7 @@ export default function NewPaymentPage() {
     setCustomerEmail("");
     setImageBase64(null);
     setChannel("ANY");
+    setFeeBearer(null);
   }
 
   return (
@@ -371,6 +376,19 @@ export default function NewPaymentPage() {
                 ? "Le client verra toutes les méthodes disponibles pour son pays sur la page de paiement et choisira lui-même."
                 : "Le lien forcera cette méthode précise. Si elle n'est pas disponible pour le pays du client, la création échouera."}
             </p>
+          </div>
+
+          <div>
+            <label className="label-base">Frais</label>
+            <select
+              value={effectiveFeeBearer}
+              onChange={(e) => setFeeBearer(e.target.value as "MERCHANT" | "CUSTOMER")}
+              className="input-base"
+            >
+              <option value="MERCHANT">À votre charge — le client paie le montant exact</option>
+              <option value="CUSTOMER">À la charge du client — les frais sont ajoutés au montant</option>
+            </select>
+            <p className="text-xs text-ink-400 mt-1.5">Valeur par défaut définie dans Paramètres &gt; Frais.</p>
           </div>
 
           <ImageUploadField value={imageBase64} onChange={setImageBase64} />

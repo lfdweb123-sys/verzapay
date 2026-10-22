@@ -6,9 +6,9 @@ const COLUMNS = [
   {
     title: "Produit",
     links: [
-      { label: "Fonctionnement", href: "#fonctionnement" },
-      { label: "Moyens de paiement", href: "#paiements" },
-      { label: "Tarifs", href: "#tarifs" },
+      { label: "Fonctionnement", href: "/#fonctionnement" },
+      { label: "Moyens de paiement", href: "/#paiements" },
+      { label: "Tarifs", href: "/#tarifs" },
       { label: "Documentation API", href: "/docs" },
       { label: "Espace développeur", href: "/developers" },
     ],

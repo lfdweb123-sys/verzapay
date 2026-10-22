@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Send, MessageCircle, Mail, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
@@ -22,7 +22,23 @@ export function ContactForm({ source }: { source: "contact" | "support" }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const looksLikeSpam = isSpamContact({ name, subject, message });
+  const looksLikeSpam = isSpamContact({ name, subject, message, email });
+
+  // Captcha calcul
+  const [captcha, setCaptcha] = useState<{ question: string; token: string } | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+
+  async function loadCaptcha() {
+    try {
+      const res = await fetch("/api/captcha", { cache: "no-store" });
+      const data = await res.json();
+      setCaptcha(data.enabled ? { question: data.question, token: data.token } : null);
+      setCaptchaAnswer("");
+    } catch {
+      setCaptcha(null);
+    }
+  }
+  useEffect(() => { loadCaptcha(); }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +50,8 @@ export function ContactForm({ source }: { source: "contact" | "support" }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name, email, subject, message, source,
+          captchaToken: captcha?.token ?? null,
+          captchaAnswer,
           uid: user?.uid ?? null,
           companyId: activeCompany?.id ?? null,
         }),
@@ -41,9 +59,11 @@ export function ContactForm({ source }: { source: "contact" | "support" }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur lors de l'envoi");
       setSent(true);
+      loadCaptcha();
       show("Message envoyé avec succès", "success");
     } catch (err) {
       show((err as Error).message, "error");
+      loadCaptcha();
     } finally {
       setSending(false);
     }
@@ -100,10 +120,20 @@ export function ContactForm({ source }: { source: "contact" | "support" }) {
               className="input-base h-auto py-2.5 resize-none"
             />
           </div>
+          {captcha && (
+            <div>
+              <label className="label-base">Vérification anti-robot : combien font {captcha.question} *</label>
+              <input
+                type="text" inputMode="numeric" required value={captchaAnswer}
+                onChange={(e) => setCaptchaAnswer(e.target.value)}
+                placeholder="Votre réponse" className="input-base sm:max-w-[200px]"
+              />
+            </div>
+          )}
           <p className="text-xs text-ink-500 bg-ink-50 rounded-lg p-3">
             Pour une réponse rapide et fiable dans un bref délai, contactez-nous directement sur WhatsApp.
           </p>
-          <button type="submit" disabled={sending || looksLikeSpam} className="btn-primary">
+          <button type="submit" disabled={sending || looksLikeSpam || (!!captcha && captchaAnswer.trim() === "")} className="btn-primary">
             {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             Envoyer le message
           </button>

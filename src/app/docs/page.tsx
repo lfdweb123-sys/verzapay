@@ -503,6 +503,41 @@ export default function DocsPage() {
               Une URL en <code className="font-mono">http://</code> entraîne une redirection que certains de nos
               partenaires ne suivent pas, ce qui empêche la notification d&apos;arriver.
             </div>
+            <div
+              className="mt-4 rounded-xl p-4 text-sm leading-relaxed"
+              style={{ backgroundColor: c.surfaceSoft, border: `1px solid ${c.border}`, color: c.textMuted }}
+            >
+              <p className="font-medium" style={{ color: c.text }}>Comment vérifier qu&apos;un webhook vient bien de Verzapay ?</p>
+              <p className="mt-2">
+                Les webhooks Verzapay <strong style={{ color: c.text }}>ne sont pas signés</strong> : il n&apos;y a pas de secret
+                de webhook ni d&apos;en-tête de signature à vérifier. La vérification se fait donc de votre côté, avec les
+                règles ci-dessous :
+              </p>
+              <ol className="mt-2 list-decimal pl-5 space-y-1.5">
+                <li>
+                  <strong style={{ color: c.text }}>Utilisez une URL secrète.</strong> Ajoutez à votre URL un jeton long et
+                  aléatoire que vous seul connaissez, par exemple <code className="font-mono">https://monsite.com/webhook/verzapay?token=VOTRE_JETON_ALEATOIRE</code>,
+                  et refusez (401) toute requête dont le jeton est absent ou différent.
+                </li>
+                <li>
+                  <strong style={{ color: c.text }}>Rapprochez le paiement de votre commande.</strong> Vérifiez que{" "}
+                  <code className="font-mono">paymentId</code> (ou <code className="font-mono">merchantReference</code>) correspond à
+                  un paiement que vous avez réellement créé, puis que <code className="font-mono">amount</code> et{" "}
+                  <code className="font-mono">currency</code> correspondent à la commande. Ignorez tout identifiant inconnu.
+                </li>
+                <li>
+                  <strong style={{ color: c.text }}>Ne faites confiance qu&apos;à votre propre base.</strong> Ne livrez pas une commande
+                  uniquement parce qu&apos;un webhook l&apos;annonce : contrôlez qu&apos;elle est bien en attente chez vous.
+                </li>
+                <li>
+                  <strong style={{ color: c.text }}>Soyez idempotent.</strong> Un même événement peut arriver plusieurs fois :
+                  si la commande est déjà marquée payée, répondez <code className="font-mono">200</code> sans la retraiter.
+                </li>
+                <li>
+                  <strong style={{ color: c.text }}>Répondez vite en HTTPS</strong> avec un statut <code className="font-mono">2xx</code>.
+                </li>
+              </ol>
+            </div>
             <div className="space-y-1.5 mt-4">
               {[
                 { event: "payment.completed", desc: "Paiement reçu avec succès" },
@@ -531,7 +566,14 @@ export default function DocsPage() {
               Exemple de handler (Node.js)
             </p>
             <CodeBlock dark={dark} code={`app.post('/webhook/verzapay', (req, res) => {
+  // 1. Vérifier le jeton secret placé dans l'URL du webhook
+  if (req.query.token !== process.env.VERZAPAY_WEBHOOK_TOKEN) {
+    return res.status(401).end();
+  }
+
   const event = req.body;
+  // 2. Retrouver la commande via event.paymentId / event.merchantReference,
+  //    comparer event.amount et ignorer si déjà traitée (idempotence)
 
   switch (event.type) {
     case 'payment.completed':
