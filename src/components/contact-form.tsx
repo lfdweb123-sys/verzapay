@@ -5,6 +5,7 @@ import { Loader2, Send, MessageCircle, Mail, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
 import { useToast } from "@/components/ui/toast";
+import { isSpamContact } from "@/lib/spam";
 
 const WHATSAPP_NUMBER = "22962758703"; // basé sur le numéro de contact déclaré de l'entreprise
 const CONTACT_EMAIL = "contact@verzapay.com";
@@ -21,8 +22,11 @@ export function ContactForm({ source }: { source: "contact" | "support" }) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
+  const looksLikeSpam = isSpamContact({ name, subject, message });
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (looksLikeSpam) return;
     setSending(true);
     try {
       const res = await fetch("/api/contact", {
@@ -57,6 +61,7 @@ export function ContactForm({ source }: { source: "contact" | "support" }) {
         </div>
         <p className="font-medium text-ink-900">Message envoyé !</p>
         <p className="text-sm text-ink-500">Nous vous répondrons par email dans les plus brefs délais.</p>
+        <p className="text-sm text-ink-500">Pour une réponse rapide et fiable, contactez-nous aussi sur WhatsApp.</p>
         <button onClick={() => { setSent(false); setSubject(""); setMessage(""); }} className="btn-secondary mx-auto text-sm">
           Envoyer un autre message
         </button>
@@ -95,7 +100,10 @@ export function ContactForm({ source }: { source: "contact" | "support" }) {
               className="input-base h-auto py-2.5 resize-none"
             />
           </div>
-          <button type="submit" disabled={sending} className="btn-primary">
+          <p className="text-xs text-ink-500 bg-ink-50 rounded-lg p-3">
+            Pour une réponse rapide et fiable dans un bref délai, contactez-nous directement sur WhatsApp.
+          </p>
+          <button type="submit" disabled={sending || looksLikeSpam} className="btn-primary">
             {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             Envoyer le message
           </button>

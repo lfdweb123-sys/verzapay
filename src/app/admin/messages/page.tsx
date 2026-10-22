@@ -11,6 +11,7 @@ interface Merchant {
   uid: string;
   displayName: string;
   email: string;
+  identityVerified?: boolean;
 }
 
 export default function AdminMessagesPage() {
@@ -20,7 +21,7 @@ export default function AdminMessagesPage() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [loadingMerchants, setLoadingMerchants] = useState(true);
 
-  const [target, setTarget] = useState<"single" | "all">("single");
+  const [target, setTarget] = useState<"single" | "all" | "unverified">("single");
   const [targetUid, setTargetUid] = useState("");
   const [search, setSearch] = useState("");
   const [subject, setSubject] = useState("");
@@ -53,6 +54,8 @@ export default function AdminMessagesPage() {
     return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
   });
 
+  const unverifiedCount = merchants.filter((m) => !m.identityVerified).length;
+
   async function handleSend() {
     if (!user) return;
     if (!subject.trim() || !message.trim()) { show("Sujet et message requis", "error"); return; }
@@ -82,7 +85,7 @@ export default function AdminMessagesPage() {
   }
 
   function handleSendClick() {
-    if (target === "all") {
+    if (target === "all" || target === "unverified") {
       setConfirmAllOpen(true);
     } else {
       handleSend();
@@ -113,6 +116,13 @@ export default function AdminMessagesPage() {
                 target === "all" ? "border-brand-700 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-600 hover:bg-ink-50")}
             >
               <Users size={15} /> Tous les marchands
+            </button>
+            <button
+              onClick={() => setTarget("unverified")}
+              className={cn("flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border text-sm font-medium transition-colors",
+                target === "unverified" ? "border-brand-700 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-600 hover:bg-ink-50")}
+            >
+              <Users size={15} /> Non vérifiés
             </button>
           </div>
         </div>
@@ -197,9 +207,11 @@ export default function AdminMessagesPage() {
       {confirmAllOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-popover p-6 text-center">
-            <p className="font-medium text-ink-900">Envoyer à tous les marchands ?</p>
+            <p className="font-medium text-ink-900">
+              {target === "unverified" ? "Envoyer aux utilisateurs non vérifiés ?" : "Envoyer à tous les marchands ?"}
+            </p>
             <p className="text-sm text-ink-500 mt-2">
-              Ce message sera envoyé à <strong>{merchants.length} marchand(s)</strong>. Cette action est irréversible.
+              Ce message sera envoyé à <strong>{target === "unverified" ? unverifiedCount : merchants.length} utilisateur(s)</strong>. Cette action est irréversible.
             </p>
             <div className="flex gap-2 mt-5">
               <button onClick={() => setConfirmAllOpen(false)} className="btn-secondary flex-1">Annuler</button>

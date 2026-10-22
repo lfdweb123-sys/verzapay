@@ -45,7 +45,7 @@ export const createPaymentSchema = z.object({
   currency: z.literal("XOF").optional(),
   description: shortText(200),
   customerName: shortText(100),
-  customerPhone: phone,
+  customerPhone: z.string().min(6, "Le numéro de téléphone du client est requis").max(30),
   customerEmail: z.string().email().max(150).optional().nullable(),
   imageBase64: base64Image,
   uid,
@@ -157,7 +157,7 @@ export const requestEmailChangeSchema = z.object({
 
 export const adminSendMessageSchema = z.object({
   adminUid: uid,
-  target: z.enum(["single", "all"]),
+  target: z.enum(["single", "all", "unverified"]),
   targetUid: z.string().max(128).optional().nullable(),
   subject: z.string().min(1).max(200),
   message: z.string().min(1).max(5000),
