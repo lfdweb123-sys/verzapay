@@ -1,11 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import {
-  FieldPath,
-  FieldValue,
-  Timestamp,
-} from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,9 +10,10 @@ export const maxDuration = 60;
 const LOG_PREFIX = "[PurgePendingPayments]";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const BATCH_SIZE = 400;
+const LOCK_DURATION_MS = 10 * 60 * 1000;
 
-// Marqueur persistant : indique que le nettoyage initial est terminé.
-const INITIAL_CLEANUP_REF = "system/cron-purge-pending-payments";
+const INITIAL_CLEANUP_PATH = "system/cron-purge-pending-payments";
+const TARGET_STATUSES = new Set(["pending", "failed"]);
 
 function isAuthorized(req: NextRequest): boolean {
   const expectedSecret = process.env.CRON_RECONCILE_SECRET;
@@ -26,157 +23,176 @@ function isAuthorized(req: NextRequest): boolean {
     return false;
   }
 
-  const headerSecret = req.headers.get("x-cron-secret");
-  const querySecret = req.nextUrl.searchParams.get("secret");
-
   return (
-    headerSecret === expectedSecret ||
-    querySecret === expectedSecret
+    req.headers.get("x-cron-secret") === expectedSecret ||
+    req.nextUrl.searchParams.get("secret") === expectedSecret
   );
 }
 
 /**
- * Convertit une date connue en millisecondes.
- * Prend en charge les Timestamp Firestore et les nombres en
- * millisecondes ou secondes Unix.
+ * Convertit les formats de date connus en millisecondes Unix.
+ * Une date inconnue est ignorée par le nettoyage quotidien.
  */
 function getCreatedAtMillis(value: unknown): number | null {
   if (value instanceof Timestamp) {
     return value.toMillis();
   }
 
-  if (
-    value &&
-    typeof value === "object" &&
-    "toMillis" in value &&
-    typeof value.toMillis === "function"
-  ) {
-    const result = value.toMillis();
+  if (value instanceof Date) {
+    const result = value.getTime();
     return Number.isFinite(result) ? result : null;
   }
 
   if (typeof value === "number" && Number.isFinite(value)) {
-    // Les timestamps Unix actuels en secondes ont 10 chiffres.
+    // Accepte les timestamps en secondes ou millisecondes.
     return value < 100_000_000_000 ? value * 1000 : value;
+  }
+
+  if (typeof value === "string") {
+    const result = Date.parse(value);
+    return Number.isFinite(result) ? result : null;
+  }
+
+  if (value && typeof value === "object" && "toMillis" in value) {
+    const toMillis = (value as { toMillis?: unknown }).toMillis;
+
+    if (typeof toMillis === "function") {
+      try {
+        const result = toMillis.call(value);
+        return typeof result === "number" && Number.isFinite(result)
+          ? result
+          : null;
+      } catch {
+        return null;
+      }
+    }
   }
 
   return null;
 }
 
 /**
- * Détermine si le nettoyage initial a déjà été effectué.
- */
-async function hasInitialCleanupCompleted(
-  db: FirebaseFirestore.Firestore
-): Promise<boolean> {
-  const snapshot = await db.doc(INITIAL_CLEANUP_REF).get();
-  return snapshot.data()?.completed === true;
-}
-
-/**
- * Nettoyage initial : supprime tous les paiements pending.
+ * Parcourt toute la collection group sans filtrer sur status
+ * ni createdAt dans Firestore : cela évite l'index de statut
+ * signalé dans l'erreur FAILED_PRECONDITION.
  *
- * Le marqueur n'est créé qu'après la fin de toutes les suppressions.
- * En cas d'erreur, une prochaine exécution pourra reprendre le travail.
+ * Les documents non concernés sont conservés.
  */
-async function runInitialCleanup(
-  db: FirebaseFirestore.Firestore
+async function purgeTransactions(
+  db: FirebaseFirestore.Firestore,
+  initial: boolean
 ): Promise<number> {
   let deleted = 0;
+  let lastDocument:
+    | FirebaseFirestore.QueryDocumentSnapshot
+    | undefined;
 
-  console.log(`${LOG_PREFIX} Début du nettoyage initial`);
+  const cutoff = Date.now() - MAX_AGE_MS;
 
   for (;;) {
-    // Requête paginée : les documents supprimés ne seront plus
-    // présents lors des recherches suivantes.
-    const snapshot = await db
+    let query = db
       .collectionGroup("transactions")
-      .where("status", "==", "pending")
-      .orderBy(FieldPath.documentId())
-      .limit(BATCH_SIZE)
-      .get();
+      .limit(BATCH_SIZE);
+
+    if (lastDocument) {
+      query = query.startAfter(lastDocument);
+    }
+
+    const snapshot = await query.get();
 
     if (snapshot.empty) {
       break;
     }
 
     const batch = db.batch();
+    let batchDeleteCount = 0;
 
-    for (const document of snapshot.docs) {
-      batch.delete(document.ref);
+    for (const doc of snapshot.docs) {
+      const status = doc.get("status");
+
+      // Ne supprime que ces deux statuts exacts.
+      if (typeof status !== "string" || !TARGET_STATUSES.has(status)) {
+        continue;
+      }
+
+      if (!initial) {
+        const createdAt = getCreatedAtMillis(doc.get("createdAt"));
+
+        // Sans date exploitable, ne pas supprimer en mode quotidien.
+        if (createdAt === null || createdAt > cutoff) {
+          continue;
+        }
+      }
+
+      batch.delete(doc.ref);
+      batchDeleteCount++;
     }
 
-    await batch.commit();
-    deleted += snapshot.size;
+    // Le curseur est avancé à la fin du lot lu, même si
+    // aucun document de ce lot ne doit être supprimé.
+    lastDocument = snapshot.docs[snapshot.docs.length - 1];
 
-    console.log(
-      `${LOG_PREFIX} Nettoyage initial : ${deleted} document(s) supprimé(s)`
-    );
+    if (batchDeleteCount > 0) {
+      await batch.commit();
+      deleted += batchDeleteCount;
+
+      console.log(
+        `${LOG_PREFIX} Mode=${initial ? "initial" : "daily"} : ` +
+          `${batchDeleteCount} suppression(s), total=${deleted}`
+      );
+    }
 
     if (snapshot.size < BATCH_SIZE) {
       break;
     }
   }
 
-  // Le marqueur est enregistré uniquement après le nettoyage.
-  await db.doc(INITIAL_CLEANUP_REF).set({
-    completed: true,
-    completedAt: FieldValue.serverTimestamp(),
-    initialDeleted: deleted,
-  });
-
-  console.log(
-    `${LOG_PREFIX} Nettoyage initial terminé : ${deleted} suppression(s)`
-  );
-
   return deleted;
 }
 
+type InitialState =
+  | { mode: "initial"; acquired: true }
+  | { mode: "daily"; acquired: false }
+  | { mode: "busy"; acquired: false };
+
 /**
- * Nettoyage quotidien : supprime les paiements pending de plus
- * de 7 jours. Le format du champ createdAt doit correspondre
- * à celui utilisé dans la base.
+ * Réserve le nettoyage initial dans une transaction Firestore.
+ * Un verrou expirant permet de reprendre après une interruption.
  */
-async function runDailyCleanup(
+async function acquireInitialCleanup(
   db: FirebaseFirestore.Firestore
-): Promise<number> {
-  const cutoffMillis = Date.now() - MAX_AGE_MS;
+): Promise<InitialState> {
+  const ref = db.doc(INITIAL_CLEANUP_PATH);
 
-  // Cette requête correspond aux documents où createdAt est un
-  // nombre en millisecondes Unix.
-  const snapshot = await db
-    .collectionGroup("transactions")
-    .where("status", "==", "pending")
-    .where("createdAt", "<=", cutoffMillis)
-    .limit(BATCH_SIZE)
-    .get();
+  return db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const data = snapshot.data();
 
-  if (snapshot.empty) {
-    return 0;
-  }
-
-  const batch = db.batch();
-  let deleted = 0;
-
-  for (const document of snapshot.docs) {
-    const createdAt = getCreatedAtMillis(document.get("createdAt"));
-
-    // Vérification supplémentaire avant suppression.
-    if (
-      createdAt !== null &&
-      createdAt <= cutoffMillis &&
-      document.get("status") === "pending"
-    ) {
-      batch.delete(document.ref);
-      deleted++;
+    if (data?.completed === true) {
+      return { mode: "daily", acquired: false };
     }
-  }
 
-  if (deleted > 0) {
-    await batch.commit();
-  }
+    const now = Date.now();
+    const leaseUntil =
+      typeof data?.leaseUntil === "number" ? data.leaseUntil : 0;
 
-  return deleted;
+    if (data?.running === true && leaseUntil > now) {
+      return { mode: "busy", acquired: false };
+    }
+
+    transaction.set(
+      ref,
+      {
+        running: true,
+        completed: false,
+        leaseUntil: now + LOCK_DURATION_MS,
+        startedAt: Timestamp.now(),
+      },
+      { merge: true }
+    );
+
+    return { mode: "initial", acquired: true };
+  });
 }
 
 export async function GET(req: NextRequest) {
@@ -189,51 +205,83 @@ export async function GET(req: NextRequest) {
 
   try {
     const db = adminDb();
+    const state = await acquireInitialCleanup(db);
+    const markerRef = db.doc(INITIAL_CLEANUP_PATH);
 
-    // Vérifier si le nettoyage initial est déjà terminé.
-    const initialCompleted = await hasInitialCleanupCompleted(db);
-
-    if (!initialCompleted) {
-      const deleted = await runInitialCleanup(db);
-
-      return NextResponse.json({
-        ok: true,
-        mode: "initial",
-        deleted,
-        message:
-          "Nettoyage initial terminé. Les prochaines exécutions appliqueront la règle des 7 jours.",
-      });
+    if (state.mode === "busy") {
+      return NextResponse.json(
+        {
+          ok: false,
+          mode: "initial",
+          deleted: 0,
+          error:
+            "Le nettoyage initial est déjà en cours. Réessaie plus tard.",
+        },
+        { status: 409 }
+      );
     }
 
-    // Exécutions suivantes : nettoyage des paiements anciens.
-    let totalDeleted = 0;
+    if (state.mode === "initial" && state.acquired) {
+      console.log(`${LOG_PREFIX} Début du nettoyage initial`);
 
-    for (;;) {
-      const deleted = await runDailyCleanup(db);
+      try {
+        const deleted = await purgeTransactions(db, true);
 
-      totalDeleted += deleted;
+        await markerRef.set(
+          {
+            running: false,
+            completed: true,
+            leaseUntil: 0,
+            completedAt: Timestamp.now(),
+            initialDeleted: deleted,
+          },
+          { merge: true }
+        );
 
-      // S'il n'y a rien à supprimer, le nettoyage est terminé.
-      if (deleted === 0) {
-        break;
-      }
+        console.log(
+          `${LOG_PREFIX} Nettoyage initial terminé : ${deleted} suppression(s)`
+        );
 
-      // Protection contre une boucle inutile si le lot est incomplet.
-      if (deleted < BATCH_SIZE) {
-        break;
+        return NextResponse.json({
+          ok: true,
+          mode: "initial",
+          deleted,
+          message:
+            "Tous les paiements pending et failed ont été traités. Les prochaines exécutions appliqueront la règle des 7 jours.",
+        });
+      } catch (error) {
+        // Le nettoyage initial n'est PAS marqué comme terminé.
+        // Le verrou expirera et une exécution ultérieure reprendra.
+        console.error(`${LOG_PREFIX} Erreur initiale :`, error);
+
+        return NextResponse.json(
+          {
+            ok: false,
+            mode: "initial",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Échec du nettoyage initial.",
+          },
+          { status: 500 }
+        );
       }
     }
+
+    console.log(`${LOG_PREFIX} Début du nettoyage quotidien`);
+
+    const deleted = await purgeTransactions(db, false);
 
     console.log(
-      `${LOG_PREFIX} Nettoyage quotidien terminé : ${totalDeleted} suppression(s)`
+      `${LOG_PREFIX} Nettoyage quotidien terminé : ${deleted} suppression(s)`
     );
 
     return NextResponse.json({
       ok: true,
       mode: "daily",
-      deleted: totalDeleted,
+      deleted,
       message:
-        "Nettoyage quotidien terminé. Les paiements pending de 7 jours ou plus ont été supprimés.",
+        "Les paiements pending et failed âgés d'au moins 7 jours ont été traités.",
     });
   } catch (error) {
     console.error(`${LOG_PREFIX} Erreur :`, error);
