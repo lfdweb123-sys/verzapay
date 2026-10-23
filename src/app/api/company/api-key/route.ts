@@ -3,11 +3,16 @@ import { adminDb } from "@/lib/firebase-admin";
 import { hashSecret, hashLookup, generateApiSecretKey, generateApiPublicKey } from "@/lib/crypto-utils";
 import { generateApiKeySchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { companyId, uid } = parseOrThrow(generateApiKeySchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const limited = await checkRateLimit(`api-key-gen:uid:${uid}`, 10, 3600); // 10 générations / heure max
     if (!limited.allowed) {

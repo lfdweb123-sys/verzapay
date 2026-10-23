@@ -154,7 +154,7 @@ export default function DashboardPage() {
           {txLoading ? (
             <div className="h-32 flex items-center justify-center"><Spinner /></div>
           ) : (
-            <ResponsiveContainer width="100%" height={120}>
+            <ResponsiveContainer width="100%" height={120} minWidth={0} initialDimension={{ width: 320, height: 120 }}>
               <BarChart data={chartData} barSize={28}>
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#888780" }} axisLine={false} tickLine={false} />
                 <Tooltip

@@ -3,11 +3,16 @@ import { adminDb } from "@/lib/firebase-admin";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { requestEmailChangeSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, newEmail } = parseOrThrow(requestEmailChangeSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const limited = await checkRateLimit(`email-change-request:uid:${uid}`, 5, 86400); // 5 / jour
     if (!limited.allowed) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { requireAdmin } from "@/lib/require-admin";
 import { getJoonapayBalance } from "@/lib/joonapay";
 
 export async function GET(req: NextRequest) {
@@ -7,9 +7,7 @@ export async function GET(req: NextRequest) {
     const uid = req.nextUrl.searchParams.get("uid");
     if (!uid) return NextResponse.json({ error: "uid manquant" }, { status: 400 });
 
-    const db = adminDb();
-    const userSnap = await db.collection("users").doc(uid).get();
-    if (!userSnap.exists || !userSnap.data()?.isAdmin) {
+    if (!(await requireAdmin(uid))) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 

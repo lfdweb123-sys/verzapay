@@ -3,12 +3,17 @@ import { adminDb } from "@/lib/firebase-admin";
 import { createVerifyProSession } from "@/lib/verifypro";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   console.log("🚀 [KYC SESSION] Création d'une session KYC");
 
   try {
     const { companyId, uid, email, displayName } = await req.json();
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
     console.log(`📊 [KYC SESSION] companyId: ${companyId}, uid: ${uid}, email: ${email}`);
 
     if (!companyId || typeof companyId !== "string" || !uid || typeof uid !== "string") {

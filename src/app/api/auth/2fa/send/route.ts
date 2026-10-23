@@ -4,6 +4,7 @@ import { hashSecret, generateSixDigitCode } from "@/lib/crypto-utils";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { twoFactorSendSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const RESEND_COOLDOWN_MS = 30 * 1000; // 30 secondes entre deux envois
@@ -12,6 +13,10 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, displayName } = parseOrThrow(twoFactorSendSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     // Rate limit double : par compte (anti-spam ciblé) et par IP (anti-bot générique)
     const ip = getClientIp(req);

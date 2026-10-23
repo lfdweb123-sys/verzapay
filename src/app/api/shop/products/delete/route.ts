@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { z } from "zod";
 import { parseOrThrow } from "@/lib/validation";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 const schema = z.object({
   uid: z.string().min(1),
@@ -12,6 +13,10 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, productId } = parseOrThrow(schema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const db = adminDb();
     const productRef = db.collection("shopProducts").doc(productId);

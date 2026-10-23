@@ -3,11 +3,16 @@ import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { teamRespondSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { companyId, inviteId, token, uid, action } = parseOrThrow(teamRespondSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const limited = await checkRateLimit(`team-respond:uid:${uid}`, 30, 3600);
     if (!limited.allowed) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 // Liste des clients enregistrés d'une entreprise (créés automatiquement à
 // chaque création de lien de paiement). Lecture côté serveur uniquement
@@ -8,6 +9,10 @@ export async function GET(req: NextRequest) {
   try {
     const companyId = req.nextUrl.searchParams.get("companyId");
     const uid = req.nextUrl.searchParams.get("uid");
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
     if (!companyId || !uid) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }

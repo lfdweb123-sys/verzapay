@@ -4,6 +4,7 @@ import { generateApiPublicKey } from "@/lib/crypto-utils";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { createCompanySchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 function colorForName(name: string): string {
   const colors = ["#0C447C", "#3B6D11", "#854F0B", "#993556", "#534AB7", "#993C1D"];
@@ -16,6 +17,10 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, name, legalName, sector, country } = parseOrThrow(createCompanySchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const limited = await checkRateLimit(`company-create:uid:${uid}`, 10, 3600); // 10 créations / heure
     if (!limited.allowed) {

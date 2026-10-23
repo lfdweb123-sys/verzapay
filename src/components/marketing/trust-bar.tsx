@@ -1,6 +1,8 @@
-const STATS = [
+import { CountryCount } from "@/components/marketing/country-count";
+
+const STATS: { value: React.ReactNode; label: string }[] = [
   { value: "< 3 min", label: "Vérification KYC marchand" },
-  { value: "12 pays", label: "Couverture Ouest africaine" },
+  { value: <CountryCount />, label: "Pays couverts" },
   { value: "98,2 %", label: "Taux de succès des paiements" },
   { value: "0,5 %", label: "Commission par défaut, dégressive" },
 ];

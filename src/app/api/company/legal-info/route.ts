@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { companyLegalInfoSchema, parseOrThrow } from "@/lib/validation";
 import { z } from "zod";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 const requestSchema = z.object({
   companyId: z.string().min(1).max(128),
@@ -13,6 +14,10 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { companyId, uid, legalInfo } = parseOrThrow(requestSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const db = adminDb();
     const companyRef = db.collection("companies").doc(companyId);

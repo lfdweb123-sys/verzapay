@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { createShopSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, companyId, name, slug, description, whatsappNumber } = parseOrThrow(createShopSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const limited = await checkRateLimit(`shop-create:uid:${uid}`, 10, 3600);
     if (!limited.allowed) {

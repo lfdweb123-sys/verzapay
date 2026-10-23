@@ -1,4 +1,5 @@
 // app/api/cron/reconcile-payments/route.ts
+import { assertSafeWebhookUrl } from "@/lib/safe-url";
 import { alertLargePaymentSafe } from "@/lib/fraud-alert";
 import { publicAmounts } from "@/lib/charge";
 import { NextRequest, NextResponse } from "next/server";
@@ -45,10 +46,12 @@ async function notifyMerchantWebhook(
 
     console.log(`${LOG_PREFIX} [merchant-webhook] companyId=${companyId} -> POST ${webhookUrl}`);
 
+    await assertSafeWebhookUrl(webhookUrl); // refuse localhost / réseaux privés (SSRF)
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      redirect: "manual",
       signal: AbortSignal.timeout(5000),
     });
 

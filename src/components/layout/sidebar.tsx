@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { cn, initials, colorForName } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
 import type { Company } from "@/types";
@@ -194,7 +193,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto scrollbar-none px-2 py-3 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto scrollbar-thin-visible px-2 py-3 space-y-0.5">
           {navList.map((item, idx) => {
             const prev = navList[idx - 1];
             const showSection = item.section && item.section !== prev?.section;
@@ -249,14 +248,6 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
 
         {/* User footer + déconnexion bien visible */}
         <div className="shrink-0 border-t border-ink-200 px-3 py-3 space-y-2">
-          <div className={cn("flex items-center gap-2.5", collapsed && "lg:justify-center")}>
-            <UserAvatar photoURL={appUser?.photoURL} name={appUser?.displayName ?? user?.email ?? "U"} size={32} />
-            <div className={cn("flex-1 min-w-0", collapsed && "lg:hidden")}>
-              <p className="text-sm font-medium text-ink-900 truncate">{appUser?.displayName ?? "—"}</p>
-              <p className="text-[11px] text-ink-500 truncate">{user?.email}</p>
-            </div>
-          </div>
-
           <button
             onClick={handleLogout}
             title={collapsed ? "Déconnexion" : undefined}

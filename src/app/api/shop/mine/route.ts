@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function GET(req: NextRequest) {
   try {
     const uid = req.nextUrl.searchParams.get("uid");
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
     const companyId = req.nextUrl.searchParams.get("companyId");
     if (!uid || !companyId) return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
 

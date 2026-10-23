@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { KycBadge, Spinner, EmptyState } from "@/components/ui/badges";
 import {
   Building2, Search, CheckCircle2, XCircle, Loader2, AlertTriangle,
-  Ban, RotateCcw, ChevronRight,
+  Ban, RotateCcw, ChevronRight, Trash2,
 } from "lucide-react";
 import { formatXOF, formatDate, initials, colorForName } from "@/lib/utils";
 import type { Company, KycStatus } from "@/types";
@@ -38,6 +38,10 @@ function AdminCompaniesContent() {
   const [suspendModal, setSuspendModal] = useState<Company | null>(null);
   const [suspendReason, setSuspendReason] = useState("");
   const [suspending, setSuspending] = useState(false);
+  // Sélection multiple + actions en masse
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkModal, setBulkModal] = useState<"suspend" | "unsuspend" | "delete" | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -112,12 +116,80 @@ function AdminCompaniesContent() {
   }, [companies, search, statusFilter]);
   const pg = usePagination(filtered, 20, search);
 
+  const pageAllSelected = pg.pageItems.length > 0 && pg.pageItems.every((c) => selected.has(c.id));
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function togglePage() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (pageAllSelected) pg.pageItems.forEach((c) => next.delete(c.id));
+      else pg.pageItems.forEach((c) => next.add(c.id));
+      return next;
+    });
+  }
+
+  async function handleBulk() {
+    if (!user || !bulkModal) return;
+    setBulkRunning(true);
+    try {
+      const ids = Array.from(selected);
+      let done = 0;
+      const skipped: { id: string; reason: string }[] = [];
+      for (let i = 0; i < ids.length; i += 100) {
+        const res = await fetch("/api/admin/bulk-companies", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adminUid: user.uid, companyIds: ids.slice(i, i + 100), action: bulkModal, reason: suspendReason || undefined }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Erreur");
+        done += data.done;
+        skipped.push(...data.skipped);
+      }
+      const verb = { suspend: "suspendue(s)", unsuspend: "réactivée(s)", delete: "supprimée(s)" }[bulkModal];
+      show(
+        `${done} entreprise(s) ${verb}${skipped.length ? ` · ${skipped.length} ignorée(s) (${Array.from(new Set(skipped.map((x) => x.reason))).join(", ")})` : ""}`,
+        skipped.length && !done ? "error" : "success"
+      );
+      setBulkModal(null);
+      setSuspendReason("");
+      setSelected(new Set());
+      await loadCompanies();
+    } catch (err) {
+      show((err as Error).message, "error");
+    } finally {
+      setBulkRunning(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-lg font-medium text-ink-900">Entreprises</h1>
         <p className="text-sm text-ink-500">{companies.length} entreprise(s) sur la plateforme</p>
       </div>
+
+      {selected.size > 0 && (
+        <div className="card-base p-3 flex flex-wrap items-center gap-2 border-brand-200 bg-brand-50/50">
+          <span className="text-sm font-medium text-ink-900">{selected.size} sélectionnée(s)</span>
+          {selected.size < filtered.length && (
+            <button onClick={() => setSelected(new Set(filtered.map((c) => c.id)))} className="text-sm text-brand-700 hover:underline">
+              Tout sélectionner ({filtered.length})
+            </button>
+          )}
+          <div className="flex items-center gap-2 ml-auto">
+            <button onClick={() => setBulkModal("suspend")} className="btn-secondary text-sm"><Ban size={14} /> Désactiver</button>
+            <button onClick={() => setBulkModal("unsuspend")} className="btn-secondary text-sm"><RotateCcw size={14} /> Réactiver</button>
+            <button onClick={() => setBulkModal("delete")} className="btn-danger text-sm"><Trash2 size={14} /> Supprimer</button>
+            <button onClick={() => setSelected(new Set())} className="text-sm text-ink-500 hover:text-ink-800">Annuler</button>
+          </div>
+        </div>
+      )}
 
       <div className="card-base p-3 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -152,8 +224,14 @@ function AdminCompaniesContent() {
           <EmptyState title="Aucune entreprise trouvée" icon={Building2} />
         ) : (
           <div className="divide-y divide-ink-50">
+            <label className="flex items-center gap-2.5 px-4 py-2.5 bg-ink-50/50 text-xs text-ink-500 cursor-pointer">
+              <input type="checkbox" checked={pageAllSelected} onChange={togglePage} className="rounded" />
+              Sélectionner la page
+            </label>
             {pg.pageItems.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-3.5 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleOne(c.id)} className="rounded shrink-0" aria-label={`Sélectionner ${c.name}`} />
                 <Link href={`/admin/companies/${c.id}`} className="flex items-center gap-3 min-w-0 flex-1 group">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-sm font-semibold"
@@ -169,6 +247,7 @@ function AdminCompaniesContent() {
                     <p className="text-xs text-ink-500">{c.country} · Créée le {formatDate(c.createdAt)} · {formatXOF(c.walletBalance ?? 0)}</p>
                   </div>
                 </Link>
+                </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                   <KycBadge status={c.kycStatus} />
@@ -218,6 +297,42 @@ function AdminCompaniesContent() {
           </div>
         )}
       </div>
+
+      {/* Modal d'action en masse */}
+      {bulkModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-popover">
+            <div className="px-5 py-4 border-b border-ink-100 flex items-center gap-2.5">
+              <AlertTriangle size={18} className="text-warning-700 shrink-0" />
+              <p className="font-medium text-ink-900">
+                {{ suspend: "Désactiver", unsuspend: "Réactiver", delete: "Supprimer définitivement" }[bulkModal]} {selected.size} entreprise(s)
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-ink-600">
+                {bulkModal === "delete"
+                  ? "Les entreprises et toutes leurs données (transactions, décaissements, journal) seront supprimées définitivement. Action irréversible. Les entreprises avec un solde positif sont ignorées."
+                  : bulkModal === "suspend"
+                    ? "Les paiements et retraits seront désactivés pour ces entreprises. Aucun email n'est envoyé."
+                    : "Les paiements et retraits seront réactivés. Aucun email n'est envoyé."}
+              </p>
+              {bulkModal === "suspend" && (
+                <div>
+                  <label className="label-base">Motif (interne)</label>
+                  <textarea value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} rows={2} className="input-base h-auto py-2 resize-none" />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => { setBulkModal(null); setSuspendReason(""); }} disabled={bulkRunning} className="btn-secondary flex-1">Annuler</button>
+                <button onClick={handleBulk} disabled={bulkRunning} className={`${bulkModal === "unsuspend" ? "btn-primary" : "btn-danger"} flex-1`}>
+                  {bulkRunning && <Loader2 size={14} className="animate-spin" />}
+                  Confirmer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal suspension */}
       {suspendModal && (

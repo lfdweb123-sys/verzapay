@@ -3,6 +3,7 @@ import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { z } from "zod";
 import { parseOrThrow } from "@/lib/validation";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 const schema = z.object({
   uid: z.string().min(1),
@@ -13,6 +14,10 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, code } = parseOrThrow(schema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const db = adminDb();
     const userRef = db.collection("users").doc(uid);

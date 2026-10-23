@@ -6,8 +6,10 @@ import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { createPaymentSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { planCharge, planFields } from "@/lib/charge";
+import { computeCollectionFees, resolveFeeBearer } from "@/lib/fees";
 import { FxError } from "@/lib/fx";
 import type { Transaction } from "@/types";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 const LOG_PREFIX = "[CreatePayment]";
 
@@ -179,6 +181,10 @@ export async function POST(req: NextRequest) {
       // choisit lui-même. C'est la valeur par défaut recommandée.
       channel,
     } = parseOrThrow(createPaymentSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     console.log(`${LOG_PREFIX} Validation OK. companyId=${companyId} amount=${amount} customerPhone="${customerPhone}" customerEmail="${customerEmail}" channel="${channel}" uid=${uid}`);
 
@@ -303,8 +309,20 @@ export async function POST(req: NextRequest) {
     const txRef = db.collection("companies").doc(companyId).collection("transactions").doc();
     console.log(`${LOG_PREFIX} txRef.id généré: ${txRef.id}`);
 
+    // Frais Verzapay : une seule commission, payée par le marchand OU par le client (réglage
+    // Paramètres > Frais, modifiable ponctuellement). À la charge du client, elle est AJOUTÉE
+    // au montant demandé au client et le marchand reçoit 100 % du montant saisi.
+    const bearer = resolveFeeBearer(feeBearer, company.feesCollection);
+    const fees = computeCollectionFees({
+      ledgerAmount: plan.ledgerAmount,
+      chargeAmount: plan.chargeAmount,
+      chargeCurrency: plan.chargeCurrency,
+      rate: company.commissionRate ?? 0.005,
+      bearer,
+    });
+
     const joonaPayload = {
-      amount: plan.chargeAmount,
+      amount: fees.chargeTotal,
       currency: plan.chargeCurrency,
       country_uuid: country.uuid,
       ...(paymentMethod ? { payment_method_uuid: paymentMethod.uuid } : {}),
@@ -313,8 +331,8 @@ export async function POST(req: NextRequest) {
       customer_name: resolvedCustomerName,
       customer_phone: customerPhone ?? undefined,
       customer_email: customerEmail ?? undefined,
-      // Frais à charge : choix ponctuel sinon réglage de l'entreprise (Paramètres > Frais)
-      fee_bearer: (feeBearer ?? company.feesCollection ?? "MERCHANT") as "MERCHANT" | "CUSTOMER",
+      // Les frais du partenaire restent inclus dans la commission Verzapay : le client ne paie jamais un second frais.
+      fee_bearer: "MERCHANT" as const,
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
     };
@@ -333,8 +351,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur lors de la création du paiement" }, { status: 502 });
     }
 
-    const commission = Math.round(plan.ledgerAmount * (company.commissionRate ?? 0.005));
-    const netAmount = plan.ledgerAmount - commission;
+    const { commission, netAmount } = fees;
 
     // Si le marchand a laissé le choix au client (mode "ANY"), on ne connaît
     // pas encore la méthode réelle au moment de la création : on enregistre
@@ -354,6 +371,9 @@ export async function POST(req: NextRequest) {
       amount: plan.ledgerAmount,
       currency: "XOF",
       ...planFields(plan),
+      chargeAmount: fees.chargeTotal, // montant réellement demandé au client (frais inclus si à sa charge)
+      feeBearer: fees.bearer,
+      customerFee: fees.customerFee,
       commission,
       netAmount,
       method: txMethod,
@@ -413,7 +433,7 @@ export async function POST(req: NextRequest) {
         await sendPaymentLinkEmail({
           customerEmail,
           customerName: resolvedCustomerName,
-          amount: plan.chargeAmount,
+          amount: fees.chargeTotal,
           currency: plan.chargeCurrency,
           description: description ?? "Paiement Verzapay",
           checkoutUrl,
@@ -430,8 +450,10 @@ export async function POST(req: NextRequest) {
       paymentId: txRef.id,
       joonapayId: joonaRes.data?.uuid,
       checkoutUrl,
-      chargedAmount: plan.chargeAmount,
+      chargedAmount: fees.chargeTotal,
       chargedCurrency: plan.chargeCurrency,
+      feeBearer: fees.bearer,
+      customerFee: fees.customerFee,
       paymentMethodName: paymentMethod?.name ?? "Toutes les méthodes",
       channel: paymentMethod?.channel ?? "ANY",
       emailSent: !!customerEmail,

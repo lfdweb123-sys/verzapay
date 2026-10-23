@@ -6,6 +6,7 @@ import { authenticateApiRequest, ApiAuthError } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { parseOrThrow } from "@/lib/validation";
 import { planCharge, planFields } from "@/lib/charge";
+import { computeCollectionFees, resolveFeeBearer } from "@/lib/fees";
 import { FxError } from "@/lib/fx";
 import type { Transaction } from "@/types";
 
@@ -176,8 +177,18 @@ export async function POST(req: NextRequest) {
     // ensuite company.webhookUrl pour CE marchand précis une fois l'événement
     // confirmé et signé. On ne fait jamais confiance à une URL tierce fournie
     // en body pour appeler JoonaPay directement.
+    // Frais Verzapay : une seule commission, payée par le marchand OU par le client.
+    const bearer = resolveFeeBearer(body.fee_bearer, company.feesCollection);
+    const fees = computeCollectionFees({
+      ledgerAmount: plan.ledgerAmount,
+      chargeAmount: plan.chargeAmount,
+      chargeCurrency: plan.chargeCurrency,
+      rate: company.commissionRate ?? 0.005,
+      bearer,
+    });
+
     const joonaRes = await createJoonapayPayment({
-      amount: plan.chargeAmount,
+      amount: fees.chargeTotal,
       currency: plan.chargeCurrency,
       country_uuid: country.uuid,
       ...(paymentMethod ? { payment_method_uuid: paymentMethod.uuid } : {}),
@@ -186,9 +197,7 @@ export async function POST(req: NextRequest) {
       customer_name: resolvedCustomerName,
       customer_phone: body.customer_phone ?? undefined,
       customer_email: body.customer_email ?? undefined,
-      fee_bearer: body.fee_bearer
-        ? (body.fee_bearer.toUpperCase() as "MERCHANT" | "CUSTOMER")
-        : (company.feesCollection ?? "MERCHANT"),
+      fee_bearer: "MERCHANT" as const, // frais partenaire inclus dans la commission Verzapay (un seul frais)
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
     });
@@ -198,8 +207,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Ledger en XOF : commission et net calculés sur l'équivalent XOF.
-    const commission = Math.round(plan.ledgerAmount * (company.commissionRate ?? 0.005));
-    const netAmount = plan.ledgerAmount - commission;
+    const { commission, netAmount } = fees;
 
     const txMethod: Transaction["method"] =
       paymentMethod?.channel === "CREDIT_CARD"
@@ -215,6 +223,9 @@ export async function POST(req: NextRequest) {
       amount: plan.ledgerAmount,
       currency: "XOF",
       ...planFields(plan),
+      chargeAmount: fees.chargeTotal,
+      feeBearer: fees.bearer,
+      customerFee: fees.customerFee,
       commission,
       netAmount,
       method: txMethod,
@@ -243,8 +254,10 @@ export async function POST(req: NextRequest) {
         status: "pending",
         amount: plan.requestedAmount,
         currency: plan.requestedCurrency,
-        charged_amount: plan.chargeAmount,
+        charged_amount: fees.chargeTotal,
         charged_currency: plan.chargeCurrency,
+        fee_bearer: fees.bearer.toLowerCase(),
+        customer_fee: fees.customerFee,
         exchange_rate: plan.fxRate,
         checkout_url: joonaRes.data?.payment_link ?? null,
         payment_method: paymentMethod?.name ?? "any",

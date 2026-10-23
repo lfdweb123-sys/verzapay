@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { CountryCount } from "@/components/marketing/country-count";
 import { CheckCircle2, Globe2, Building2, Activity } from "lucide-react";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -51,7 +52,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               <p className="text-brand-100 text-[11px] flex items-center gap-1.5 mb-1.5">
                 <Globe2 size={13} /> Pays couverts
               </p>
-              <p className="text-white text-lg font-medium">12 pays</p>
+              <p className="text-white text-lg font-medium"><CountryCount /></p>
             </div>
             <div className="bg-white/10 border border-white/15 rounded-2xl p-4">
               <p className="text-brand-100 text-[11px] flex items-center gap-1.5 mb-1.5">

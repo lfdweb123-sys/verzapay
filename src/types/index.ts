@@ -172,9 +172,11 @@ export interface Transaction {
   // le client est débité de chargeAmount chargeCurrency (devise du pays) au taux fxRate.
   requestedAmount?: number | null;
   requestedCurrency?: string | null;
-  chargeAmount?: number | null;
+  chargeAmount?: number | null; // montant réellement demandé au client (commission incluse si à sa charge)
   chargeCurrency?: string | null;
   fxRate?: number | null;
+  feeBearer?: "MERCHANT" | "CUSTOMER"; // qui paie la commission Verzapay
+  customerFee?: number | null; // part de commission ajoutée au montant du client (devise de débit)
   customerEmail?: string | null;
   createdAt: number;
   completedAt?: number | null;

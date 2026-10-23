@@ -175,7 +175,7 @@ export default function AdminCommissionsPage() {
           <div className="card-base p-4">
             <p className="text-sm font-medium text-ink-900 mb-3">Commissions par jour</p>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 640, height: 256 }}>
                 <BarChart data={data.daily} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e0" />
                   <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} tick={{ fontSize: 11 }} minTickGap={24} />

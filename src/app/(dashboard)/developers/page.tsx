@@ -214,11 +214,33 @@ export default function DevelopersPage() {
   const { show } = useToast();
 
   const [webhookUrl, setWebhookUrl] = useState(activeCompany?.webhookUrl ?? "");
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [webhookTest, setWebhookTest] = useState<{ ok: boolean; responseStatus: number | null; durationMs: number; snippet: string; error: string | null } | null>(null);
   const [savingWebhook, setSavingWebhook] = useState(false);
 
   useEffect(() => {
     setWebhookUrl(activeCompany?.webhookUrl ?? "");
   }, [activeCompany?.id, activeCompany?.webhookUrl]);
+
+  async function testWebhook() {
+    if (!activeCompany || !user) return;
+    setTestingWebhook(true);
+    setWebhookTest(null);
+    try {
+      const res = await fetch("/api/webhooks/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: user.uid, companyId: activeCompany.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erreur lors du test");
+      setWebhookTest(data);
+    } catch (err) {
+      show((err as Error).message, "error");
+    } finally {
+      setTestingWebhook(false);
+    }
+  }
 
   async function saveWebhook(e: React.FormEvent) {
     e.preventDefault();
@@ -340,6 +362,29 @@ app.post('/webhook/verzapay', (req, res) => {
             Sauvegarder
           </button>
         </form>
+
+        {activeCompany.webhookUrl && (
+          <div className="space-y-2">
+            <button type="button" onClick={testWebhook} disabled={testingWebhook} className="btn-secondary text-sm">
+              {testingWebhook ? <Loader2 size={15} className="animate-spin" /> : <Webhook size={15} />}
+              Envoyer un événement de test
+            </button>
+            {webhookTest && (
+              <div className={`rounded-lg border px-3 py-2.5 text-xs ${webhookTest.ok ? "border-success-200 bg-success-50 text-success-700" : "border-danger-200 bg-danger-50 text-danger-700"}`}>
+                <p className="font-medium">
+                  {webhookTest.ok
+                    ? `Webhook reçu — votre serveur a répondu ${webhookTest.responseStatus} en ${webhookTest.durationMs} ms`
+                    : webhookTest.error
+                      ? `Échec : ${webhookTest.error}`
+                      : `Votre serveur a répondu ${webhookTest.responseStatus} (attendu : 2xx)`}
+                </p>
+                {webhookTest.snippet && (
+                  <pre className="mt-1.5 font-mono whitespace-pre-wrap break-all text-ink-600 max-h-28 overflow-auto">{webhookTest.snippet}</pre>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {activeCompany.webhookUrl && (
           <div className="flex items-center gap-2 text-xs text-success-700 bg-success-50 rounded-lg px-3 py-2">

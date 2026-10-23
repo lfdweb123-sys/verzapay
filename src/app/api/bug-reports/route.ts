@@ -5,6 +5,7 @@ import { notifyAdmin } from "@/lib/notify-admin";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { parseOrThrow } from "@/lib/validation";
 import { isSpamContact } from "@/lib/spam";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 const bugReportSchema = z.object({
   uid: z.string().min(1).max(128),
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const body = parseOrThrow(bugReportSchema, raw);
+    if (!(await verifyRequestUid(body.uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
 
     const limited = await checkRateLimit(`bug-report:uid:${body.uid}`, 5, 3600); // 5 signalements / heure
     if (!limited.allowed) {

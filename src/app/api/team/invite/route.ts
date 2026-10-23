@@ -4,11 +4,16 @@ import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { teamInviteSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { companyId, uid, email, role } = parseOrThrow(teamInviteSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const limited = await checkRateLimit(`team-invite:uid:${uid}`, 20, 3600); // 20 invitations / heure
     if (!limited.allowed) {

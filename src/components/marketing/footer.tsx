@@ -29,6 +29,8 @@ const COLUMNS = [
       { label: "Conditions d'utilisation", href: "/terms" },
       { label: "Politique de confidentialité", href: "/privacy" },
       { label: "Politique KYC / AML", href: "/kyc-policy" },
+      { label: "Status", href: "/status" },
+      { label: "Devises", href: "/currencies" },
     ],
   },
 ];

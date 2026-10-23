@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { updateProductSchema, parseOrThrow } from "@/lib/validation";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, productId, ...updates } = parseOrThrow(updateProductSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const db = adminDb();
     const productRef = db.collection("shopProducts").doc(productId);

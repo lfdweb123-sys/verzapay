@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { verifySecret } from "@/lib/crypto-utils";
 import { twoFactorVerifySchema, parseOrThrow } from "@/lib/validation";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 const MAX_ATTEMPTS = 5;
 
@@ -9,6 +10,10 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { uid, code } = parseOrThrow(twoFactorVerifySchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
 
     const db = adminDb();
     const codeRef = db.collection("twoFactorCodes").doc(uid);

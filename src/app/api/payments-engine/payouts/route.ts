@@ -10,12 +10,16 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { planCharge, planFields } from "@/lib/charge";
 import { FxError } from "@/lib/fx";
 import type { Payout } from "@/types";
+import { verifyRequestUid } from "@/lib/auth-token";
 
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
     const { companyId, amount, currency, recipientPhone, recipientName, note, uid, method, bank } =
       parseOrThrow(createPayoutSchema, raw);
+    if (!(await verifyRequestUid(uid))) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
 
     // NOTE: `recipientOperator` n'est pas (encore) déclaré dans createPayoutSchema,
     // donc il n'est pas validé par parseOrThrow. On le lit directement depuis le

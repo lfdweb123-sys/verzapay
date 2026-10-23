@@ -68,7 +68,7 @@ export default function NewPaymentPage() {
   useEffect(() => {
     if (!activeCompany || !user) return;
     setMethodsLoading(true);
-    fetch(`/api/payments-engine/methods?companyId=${activeCompany.id}&uid=${user.uid}`)
+    fetch(`/api/payments-engine/payments/methods?companyId=${activeCompany.id}&uid=${user.uid}`)
       .then((r) => r.json())
       .then((data) => setAvailableChannels(data.methods ?? []))
       .catch(() => setAvailableChannels([]))
@@ -394,6 +394,13 @@ export default function NewPaymentPage() {
               <option value="MERCHANT">À votre charge — le client paie le montant exact</option>
               <option value="CUSTOMER">À la charge du client — les frais sont ajoutés au montant</option>
             </select>
+            {effectiveFeeBearer === "CUSTOMER" && Number(amount) > 0 && (
+              <p className="text-xs text-ink-600 mt-1.5">
+                Le client paiera environ{" "}
+                <strong>{(Number(amount) * (1 + (activeCompany?.commissionRate ?? 0.005))).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}</strong>{" "}
+                ({((activeCompany?.commissionRate ?? 0.005) * 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} % de frais ajoutés). Vous recevez 100 % du montant saisi.
+              </p>
+            )}
             <p className="text-xs text-ink-400 mt-1.5">Valeur par défaut définie dans Paramètres &gt; Frais.</p>
           </div>
 
