@@ -70,7 +70,7 @@ export function ApiTester() {
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
-            <label className="label-base">Montant (XOF) *</label>
+            <label className="label-base">Montant *</label>
             <div className="flex gap-2"><input type="number" min="0" step="any" required value={amount} onChange={(e) => setAmount(e.target.value)} className="input-base" /><div className="w-28 shrink-0"><CurrencySelect value={currency} onChange={setCurrency} /></div></div>
           </div>
           <div>
