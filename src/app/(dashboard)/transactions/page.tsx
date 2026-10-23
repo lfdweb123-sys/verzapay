@@ -9,6 +9,7 @@ import { CreditCard, Search, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import { usePreferences } from "@/lib/preferences-context";
 import type { Transaction, Payout } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 type UnifiedRow =
   | { kind: "in"; id: string; createdAt: number; amount: number; status: string; method: string; counterparty: string; sub?: string }
@@ -60,6 +61,7 @@ export default function TransactionsPage() {
     if (!q) return true;
     return r.counterparty.toLowerCase().includes(q) || r.id.includes(q);
   });
+  const pg = usePagination(filtered, 20, search);
 
   const totalIn = transactions.filter((t) => t.status === "completed").reduce((s, t) => s + t.amount, 0);
   const totalOut = payouts.filter((p) => p.status === "completed").reduce((s, p) => s + p.amount, 0);
@@ -131,7 +133,7 @@ export default function TransactionsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {filtered.map((r) => (
+                {pg.pageItems.map((r) => (
                   <tr key={r.kind + r.id} className="hover:bg-ink-50/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       {r.kind === "in" ? (
@@ -159,6 +161,8 @@ export default function TransactionsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

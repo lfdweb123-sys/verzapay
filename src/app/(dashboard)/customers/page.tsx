@@ -9,6 +9,7 @@ import { EmptyState, Spinner, TxBadge, MethodPill } from "@/components/ui/badges
 import { Users, Search, X, Phone, Mail } from "lucide-react";
 import { formatDate, formatDateTime, initials } from "@/lib/utils";
 import type { Transaction } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface AggregatedCustomer {
   key: string;
@@ -76,6 +77,7 @@ export default function CustomersPage() {
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || c.phone?.includes(q) || c.email?.toLowerCase().includes(q);
   });
+  const pg = usePagination(filtered, 20, search);
 
   return (
     <div className="space-y-5">
@@ -125,7 +127,7 @@ export default function CustomersPage() {
           />
         ) : (
           <div className="divide-y divide-ink-50">
-            {filtered.map((c) => (
+            {pg.pageItems.map((c) => (
               <button
                 key={c.key}
                 onClick={() => setSelected(c)}
@@ -206,6 +208,8 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

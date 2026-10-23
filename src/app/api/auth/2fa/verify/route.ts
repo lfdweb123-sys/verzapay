@@ -38,6 +38,14 @@ export async function POST(req: NextRequest) {
     }
 
     await codeRef.delete();
+
+    // Preuve de réception de l'email : posée côté serveur uniquement
+    // (les règles Firestore interdisent au client d'écrire ce champ).
+    await db.collection("users").doc(uid).set(
+      { emailCodeVerified: true, emailCodeVerifiedAt: Date.now(), verifyRequestedAt: null, verifyDeadline: null },
+      { merge: true }
+    );
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/auth/2fa/verify:", err);

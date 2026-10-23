@@ -13,6 +13,7 @@ import {
   Copy, CheckCircle2, BookOpen, Webhook, ArrowRight, Loader2, Save,
   XCircle, Clock, RefreshCw, ChevronDown, ChevronUp,
 } from "lucide-react";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://verzapay.com";
 const API_BASE_URL = `${APP_BASE_URL}/api/v1`;
@@ -142,6 +143,7 @@ function WebhookLogRow({ log }: { log: WebhookLog }) {
 
 function WebhookLogs({ companyId }: { companyId: string }) {
   const [logs, setLogs] = useState<WebhookLog[]>([]);
+  const pg = usePagination(logs, 20);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -195,9 +197,11 @@ function WebhookLogs({ companyId }: { companyId: string }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {logs.map((log) => <WebhookLogRow key={log.id} log={log} />)}
+          {pg.pageItems.map((log) => <WebhookLogRow key={log.id} log={log} />)}
         </div>
       )}
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

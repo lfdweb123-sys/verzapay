@@ -29,7 +29,7 @@ const base64Pdf = z
 // ─── Auth / 2FA ─────────────────────────────────────────────────────────────
 export const twoFactorSendSchema = z.object({
   uid,
-  email,
+  email: email.optional(), // ignoré : l'adresse est lue côté serveur
   displayName: shortText(150),
 });
 

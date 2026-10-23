@@ -11,6 +11,7 @@ import { UsersRound, Plus, X, Loader2, Mail, Clock, Shield, Trash2 } from "lucid
 import { formatDate } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { TeamInvite } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface MemberDisplay {
   uid: string;
@@ -26,6 +27,7 @@ export default function TeamPage() {
   const { show } = useToast();
 
   const [members, setMembers] = useState<MemberDisplay[]>([]);
+  const pg = usePagination(members, 20);
   const [invites, setInvites] = useState<TeamInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
@@ -137,7 +139,7 @@ export default function TeamPage() {
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : (
           <div className="divide-y divide-ink-50">
-            {members.map((m) => (
+            {pg.pageItems.map((m) => (
               <div key={m.uid} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <UserAvatar photoURL={m.photoURL} name={m.displayName} size={36} />
@@ -228,6 +230,8 @@ export default function TeamPage() {
           </div>
         </div>
       )}
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

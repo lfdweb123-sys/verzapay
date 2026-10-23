@@ -10,6 +10,7 @@ import {
   AlertTriangle, ChevronRight, ShieldOff,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface Merchant {
   uid: string;
@@ -33,6 +34,10 @@ export default function AdminMerchantsPage() {
     uid: string; name: string; action: "disable" | "enable" | "delete";
   } | null>(null);
   const [reason, setReason] = useState("");
+  // Sélection multiple + actions en masse
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkModal, setBulkModal] = useState<"disable" | "enable" | "delete" | null>(null);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -94,6 +99,62 @@ export default function AdminMerchantsPage() {
       (m) => m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
     );
   }, [merchants, search]);
+
+  const { page, setPage, pageCount, pageItems, total } = usePagination(filtered, 20, search);
+
+  function toggleOne(uid: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  }
+  const pageAllSelected = pageItems.length > 0 && pageItems.every((m) => selected.has(m.uid));
+  function togglePage() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (pageAllSelected) pageItems.forEach((m) => next.delete(m.uid));
+      else pageItems.forEach((m) => next.add(m.uid));
+      return next;
+    });
+  }
+  function selectAllFiltered() {
+    setSelected(new Set(filtered.map((m) => m.uid)));
+  }
+
+  async function handleBulk() {
+    if (!user || !bulkModal) return;
+    setBulkRunning(true);
+    try {
+      const uids = Array.from(selected);
+      let done = 0;
+      const skipped: { uid: string; reason: string }[] = [];
+      for (let i = 0; i < uids.length; i += 100) {
+        const res = await fetch("/api/admin/bulk-users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adminUid: user.uid, targetUids: uids.slice(i, i + 100), action: bulkModal, reason }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Erreur");
+        done += data.done;
+        skipped.push(...data.skipped);
+      }
+      const verb = { disable: "désactivé(s)", enable: "réactivé(s)", delete: "supprimé(s)" }[bulkModal];
+      show(
+        `${done} compte(s) ${verb}${skipped.length ? ` · ${skipped.length} ignoré(s) (${Array.from(new Set(skipped.map((x) => x.reason))).join(", ")})` : ""}`,
+        skipped.length && !done ? "error" : "success"
+      );
+      setBulkModal(null);
+      setReason("");
+      setSelected(new Set());
+      await load();
+    } catch (err) {
+      show((err as Error).message, "error");
+    } finally {
+      setBulkRunning(false);
+    }
+  }
 
   // Fonction de formatage de date sécurisée - CORRIGÉE
   const formatDateSafe = (timestamp: number | null | undefined): string => {
@@ -167,16 +228,40 @@ export default function AdminMerchantsPage() {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="card-base p-3 flex flex-wrap items-center gap-2 border-brand-200 bg-brand-50/50">
+          <span className="text-sm font-medium text-ink-900">{selected.size} sélectionné(s)</span>
+          {selected.size < filtered.length && (
+            <button onClick={selectAllFiltered} className="text-sm text-brand-700 hover:underline">
+              Tout sélectionner ({filtered.length})
+            </button>
+          )}
+          <div className="flex items-center gap-2 ml-auto">
+            <button onClick={() => setBulkModal("disable")} className="btn-secondary text-sm"><ShieldOff size={14} /> Désactiver</button>
+            <button onClick={() => setBulkModal("enable")} className="btn-secondary text-sm"><RotateCcw size={14} /> Réactiver</button>
+            <button onClick={() => setBulkModal("delete")} className="btn-danger text-sm"><Trash2 size={14} /> Supprimer</button>
+            <button onClick={() => setSelected(new Set())} className="text-sm text-ink-500 hover:text-ink-800">Annuler</button>
+          </div>
+        </div>
+      )}
+
       <div className="card-base overflow-hidden">
+        {!loading && filtered.length > 0 && (
+          <label className="flex items-center gap-2.5 px-4 py-2.5 border-b border-ink-100 bg-ink-50/50 text-xs text-ink-500 cursor-pointer">
+            <input type="checkbox" checked={pageAllSelected} onChange={togglePage} className="rounded" />
+            Sélectionner la page
+          </label>
+        )}
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : filtered.length === 0 ? (
           <EmptyState title="Aucun marchand" icon={Users} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {filtered.map((m) => (
+            {pageItems.map((m) => (
               <div key={m.uid} className="flex items-center justify-between px-4 py-3.5 flex-wrap gap-3">
                 <div className="flex items-center gap-3 min-w-0">
+                  <input type="checkbox" checked={selected.has(m.uid)} onChange={() => toggleOne(m.uid)} className="rounded shrink-0" aria-label={`Sélectionner ${m.displayName}`} />
                   <UserAvatar photoURL={m.photoURL} name={m.displayName} size={36} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -228,6 +313,43 @@ export default function AdminMerchantsPage() {
           </div>
         )}
       </div>
+      <Pagination page={page} pageCount={pageCount} total={total} onChange={setPage} />
+
+      {/* Modal d'action en masse */}
+      {bulkModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-popover">
+            <div className="px-5 py-4 border-b border-ink-100 flex items-center gap-2.5">
+              <AlertTriangle size={18} className="text-warning-700 shrink-0" />
+              <p className="font-medium text-ink-900">
+                {{ disable: "Désactiver", enable: "Réactiver", delete: "Supprimer définitivement" }[bulkModal]} {selected.size} compte(s)
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-ink-600">
+                {bulkModal === "delete"
+                  ? "Les comptes seront supprimés définitivement (connexion, profil et entreprises vides). Action irréversible. Les administrateurs, votre propre compte et les comptes avec un solde positif ou un KYC approuvé sont ignorés."
+                  : bulkModal === "disable"
+                    ? "Les comptes ne pourront plus se connecter et leurs entreprises seront suspendues. Aucun email n'est envoyé."
+                    : "Les comptes retrouveront l'accès et leurs entreprises seront réactivées. Aucun email n'est envoyé."}
+              </p>
+              {bulkModal === "disable" && (
+                <div>
+                  <label className="label-base">Motif (interne)</label>
+                  <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className="input-base h-auto py-2 resize-none" placeholder="Ex : Comptes spam" />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => { setBulkModal(null); setReason(""); }} disabled={bulkRunning} className="btn-secondary flex-1">Annuler</button>
+                <button onClick={handleBulk} disabled={bulkRunning} className={`${bulkModal === "enable" ? "btn-primary" : "btn-danger"} flex-1`}>
+                  {bulkRunning && <Loader2 size={14} className="animate-spin" />}
+                  Confirmer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmation */}
       {confirmModal && (() => {

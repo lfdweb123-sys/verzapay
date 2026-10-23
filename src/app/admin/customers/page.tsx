@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/toast";
 import { EmptyState, Spinner } from "@/components/ui/badges";
 import { Users, Search, Phone, Mail, Building2 } from "lucide-react";
 import { formatXOF, initials } from "@/lib/utils";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface AdminCustomer {
   key: string;
@@ -45,6 +46,7 @@ export default function AdminCustomersPage() {
     if (!q) return customers;
     return customers.filter((c) => c.name.toLowerCase().includes(q) || c.phone?.includes(q) || c.email?.toLowerCase().includes(q));
   }, [customers, search]);
+  const pg = usePagination(filtered, 20, search);
 
   return (
     <div className="space-y-5">
@@ -84,7 +86,7 @@ export default function AdminCustomersPage() {
           <EmptyState title="Aucun client" icon={Users} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {filtered.map((c) => (
+            {pg.pageItems.map((c) => (
               <div key={c.key} className="flex items-center justify-between px-4 py-3.5 flex-wrap gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center text-white text-xs font-medium shrink-0">
@@ -112,6 +114,8 @@ export default function AdminCustomersPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

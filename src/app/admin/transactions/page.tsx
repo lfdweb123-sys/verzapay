@@ -7,6 +7,7 @@ import { TxBadge, PayoutBadge, MethodPill, EmptyState, Spinner } from "@/compone
 import { CreditCard, Search, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { formatXOF, formatDateTime } from "@/lib/utils";
 import type { Transaction, Payout } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 type Row =
   | { kind: "in"; id: string; createdAt: number; amount: number; status: string; method: string; companyName: string; counterparty: string }
@@ -65,6 +66,7 @@ export default function AdminTransactionsPage() {
       return r.companyName.toLowerCase().includes(q) || r.counterparty.toLowerCase().includes(q);
     });
   }, [rows, search, direction]);
+  const pg = usePagination(filtered, 20, search);
 
   return (
     <div className="space-y-5">
@@ -119,7 +121,7 @@ export default function AdminTransactionsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {filtered.map((r) => (
+                {pg.pageItems.map((r) => (
                   <tr key={r.kind + r.id} className="hover:bg-ink-50/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       {r.kind === "in" ? (
@@ -145,6 +147,8 @@ export default function AdminTransactionsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

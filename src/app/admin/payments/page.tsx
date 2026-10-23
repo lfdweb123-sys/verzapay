@@ -7,6 +7,7 @@ import { TxBadge, MethodPill, EmptyState, Spinner } from "@/components/ui/badges
 import { ArrowDownLeft, Search } from "lucide-react";
 import { formatXOF, formatDateTime } from "@/lib/utils";
 import type { Transaction } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 type EnrichedTx = Transaction & { companyName: string };
 
@@ -40,6 +41,7 @@ export default function AdminPaymentsPage() {
       (t) => t.companyName?.toLowerCase().includes(q) || t.customerName?.toLowerCase().includes(q) || t.customerPhone?.includes(q)
     );
   }, [transactions, search]);
+  const pg = usePagination(filtered, 20, search);
 
   const totalVolume = filtered.filter((t) => t.status === "completed").reduce((s, t) => s + t.amount, 0);
   const totalCommission = filtered.filter((t) => t.status === "completed").reduce((s, t) => s + t.commission, 0);
@@ -98,7 +100,7 @@ export default function AdminPaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {filtered.map((tx) => (
+                {pg.pageItems.map((tx) => (
                   <tr key={tx.id} className="hover:bg-ink-50/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap font-medium text-brand-800">{tx.companyName}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -116,6 +118,8 @@ export default function AdminPaymentsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatXOF, formatDate, initials, colorForName } from "@/lib/utils";
 import type { Company, KycStatus } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 const STATUS_FILTERS: { label: string; value: KycStatus | "all" }[] = [
   { label: "Tous", value: "all" },
@@ -109,6 +110,7 @@ function AdminCompaniesContent() {
       return c.name.toLowerCase().includes(q) || c.country.toLowerCase().includes(q);
     });
   }, [companies, search, statusFilter]);
+  const pg = usePagination(filtered, 20, search);
 
   return (
     <div className="space-y-5">
@@ -150,7 +152,7 @@ function AdminCompaniesContent() {
           <EmptyState title="Aucune entreprise trouvée" icon={Building2} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {filtered.map((c) => (
+            {pg.pageItems.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-3.5 flex-wrap">
                 <Link href={`/admin/companies/${c.id}`} className="flex items-center gap-3 min-w-0 flex-1 group">
                   <div
@@ -250,6 +252,8 @@ function AdminCompaniesContent() {
           </div>
         </div>
       )}
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

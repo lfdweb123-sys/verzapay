@@ -10,6 +10,7 @@ import { formatDateTime } from "@/lib/utils";
 import { usePreferences } from "@/lib/preferences-context";
 import Link from "next/link";
 import type { Transaction, TransactionStatus } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 const STATUS_FILTERS: { label: string; value: TransactionStatus | "all" }[] = [
   { label: "Tous", value: "all" },
@@ -46,6 +47,7 @@ export default function PaymentsPage() {
     const matchSearch = !q || t.customerName?.toLowerCase().includes(q) || t.customerPhone?.includes(q) || t.id.includes(q);
     return matchStatus && matchSearch;
   });
+  const pg = usePagination(filtered, 20, search);
 
   const totalFiltered = filtered.filter(t => t.status === "completed").reduce((s, t) => s + t.amount, 0);
 
@@ -131,7 +133,7 @@ export default function PaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {filtered.map((tx) => (
+                {pg.pageItems.map((tx) => (
                   <tr key={tx.id} className="hover:bg-ink-50/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <p className="font-medium text-ink-900">{tx.customerName ?? "—"}</p>
@@ -150,6 +152,8 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

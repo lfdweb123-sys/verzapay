@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/toast";
 import { EmptyState, Spinner } from "@/components/ui/badges";
 import { Mail, CheckCircle2, XCircle, Loader2, ArrowRight } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface EmailRequest {
   uid: string;
@@ -19,6 +20,7 @@ export default function AdminEmailRequestsPage() {
   const { user } = useAuth();
   const { show } = useToast();
   const [requests, setRequests] = useState<EmailRequest[]>([]);
+  const pg = usePagination(requests, 20);
   const [loading, setLoading] = useState(true);
   const [processingUid, setProcessingUid] = useState<string | null>(null);
 
@@ -73,7 +75,7 @@ export default function AdminEmailRequestsPage() {
           <EmptyState title="Aucune demande en attente" icon={Mail} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {requests.map((r) => (
+            {pg.pageItems.map((r) => (
               <div key={r.uid} className="flex items-center justify-between gap-3 px-4 py-3.5 flex-wrap">
                 <div>
                   <p className="text-sm font-medium text-ink-900">{r.displayName}</p>
@@ -105,6 +107,8 @@ export default function AdminEmailRequestsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

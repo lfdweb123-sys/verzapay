@@ -7,8 +7,13 @@ service cloud.firestore {
     // Utilisateurs
     // ───────────────────────────────────────────────
     match /users/{uid} {
-      allow read, update: if request.auth != null && request.auth.uid == uid;
-      allow create: if request.auth != null && request.auth.uid == uid;
+      // emailCodeVerified* : posés uniquement par le serveur (Admin SDK) après saisie du code à 6 chiffres
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['emailCodeVerified', 'emailCodeVerifiedAt', 'verifyRequestedAt', 'verifyDeadline']);
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !request.resource.data.keys().hasAny(['emailCodeVerified', 'emailCodeVerifiedAt']);
       allow delete: if false;
     }
 

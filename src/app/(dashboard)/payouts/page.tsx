@@ -12,6 +12,7 @@ import { TransactionTwoFactorModal } from "@/components/payments/transaction-two
 import { ArrowUpRight, Plus, X, Loader2 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import type { Payout } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 export default function PayoutsPage() {
   const { activeCompany } = useCompany();
@@ -19,6 +20,7 @@ export default function PayoutsPage() {
   const { formatAmount } = usePreferences();
   const { show } = useToast();
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const pg = usePagination(payouts, 20);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
@@ -166,7 +168,7 @@ export default function PayoutsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {payouts.map((po) => (
+                {pg.pageItems.map((po) => (
                   <tr key={po.id} className="hover:bg-ink-50/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <p className="font-medium text-ink-900">{po.recipientName ?? "—"}</p>
@@ -185,8 +187,8 @@ export default function PayoutsPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-popover animate-slide-up">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-ink-100">
+          <div className="bg-white rounded-2xl w-full sm:w-1/2 sm:min-w-[420px] max-h-[90vh] overflow-y-auto shadow-popover animate-slide-up">
+            <div className="sticky top-0 z-10 bg-white rounded-t-2xl flex items-center justify-between px-5 py-4 border-b border-ink-100">
               <p className="font-medium text-ink-900">Envoyer un paiement</p>
               <button onClick={() => setShowModal(false)} className="text-ink-400 hover:text-ink-700"><X size={18} /></button>
             </div>
@@ -283,6 +285,8 @@ export default function PayoutsPage() {
         onClose={() => setShow2FA(false)}
         onVerified={handle2FAVerified}
       />
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

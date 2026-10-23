@@ -10,11 +10,13 @@ import { formatDateTime, initials, colorForName } from "@/lib/utils";
 import { usePreferences } from "@/lib/preferences-context";
 import Link from "next/link";
 import type { LedgerEntry } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 export default function WalletsPage() {
   const { companies, activeCompany } = useCompany();
   const { formatAmount } = usePreferences();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
+  const pg = usePagination(entries, 20);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -109,7 +111,7 @@ export default function WalletsPage() {
           <EmptyState title="Aucun mouvement" description="Les crédits et débits de votre solde apparaîtront ici." icon={Wallet} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {entries.map((entry) => (
+            {pg.pageItems.map((entry) => (
               <div key={entry.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
@@ -136,6 +138,8 @@ export default function WalletsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

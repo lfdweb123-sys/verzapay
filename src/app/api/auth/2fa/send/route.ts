@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { hashSecret, generateSixDigitCode } from "@/lib/crypto-utils";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { twoFactorSendSchema, parseOrThrow } from "@/lib/validation";
@@ -11,7 +11,7 @@ const RESEND_COOLDOWN_MS = 30 * 1000; // 30 secondes entre deux envois
 export async function POST(req: NextRequest) {
   try {
     const raw = await req.json();
-    const { uid, email, displayName } = parseOrThrow(twoFactorSendSchema, raw);
+    const { uid, displayName } = parseOrThrow(twoFactorSendSchema, raw);
 
     // Rate limit double : par compte (anti-spam ciblé) et par IP (anti-bot générique)
     const ip = getClientIp(req);
@@ -24,9 +24,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Trop de demandes depuis votre réseau. Réessayez plus tard." }, { status: 429 });
     }
 
+    // L'adresse de destination vient du compte (jamais du client) : on ne peut
+    // plus faire envoyer un code à une adresse arbitraire.
+    let email: string | undefined;
+    try {
+      email = (await (await adminAuth()).getUser(uid)).email ?? undefined;
+    } catch {
+      return NextResponse.json({ error: "Compte introuvable" }, { status: 404 });
+    }
+    if (!email) {
+      return NextResponse.json({ error: "Aucune adresse email sur ce compte" }, { status: 400 });
+    }
+
     const db = adminDb();
     const codeRef = db.collection("twoFactorCodes").doc(uid);
     const existing = await codeRef.get();
+
+    // Un code envoyé par la vérification automatique des comptes reste valable
+    // jusqu'à son échéance : on ne l'écrase pas.
+    if (existing.exists && existing.data()!.source === "cron" && existing.data()!.expiresAt > Date.now()) {
+      return NextResponse.json({ ok: true, reused: true });
+    }
 
     if (existing.exists) {
       const data = existing.data()!;

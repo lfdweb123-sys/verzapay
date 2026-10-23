@@ -8,6 +8,7 @@ import { EmptyState, Spinner } from "@/components/ui/badges";
 import { Wallet, Search, ChevronRight, RefreshCw, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { formatXOF, initials, colorForName } from "@/lib/utils";
 import type { Company } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface JoonapayBalance {
   country: string;
@@ -76,6 +77,7 @@ export default function AdminWalletsPage() {
     if (!q) return companies;
     return companies.filter((c) => c.name.toLowerCase().includes(q));
   }, [companies, search]);
+  const pg = usePagination(filtered, 20, search);
 
   const totalFirestore = companies.reduce((s, c) => s + (c.walletBalance ?? 0), 0);
 
@@ -167,7 +169,7 @@ export default function AdminWalletsPage() {
           <EmptyState title="Aucune entreprise" icon={Wallet} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {filtered.map((c) => (
+            {pg.pageItems.map((c) => (
               <Link
                 key={c.id}
                 href={`/admin/companies/${c.id}`}
@@ -191,6 +193,8 @@ export default function AdminWalletsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, RotateCw } from "lucide-react";
 import AuthLayout from "@/components/layout/auth-layout";
 import { Logo } from "@/components/ui/logo";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, needsCodeVerification} from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
 
 export default function Verify2FAPage() {
@@ -28,14 +28,14 @@ export default function Verify2FAPage() {
   // le render plus bas), ce qui évite le flash du formulaire 2FA avant
   // que la redirection vers /dashboard ne soit déclenchée.
   const profileReady = !loading && !!user && !!appUser;
-  const twoFARequired = profileReady && !twoFactorVerified && appUser?.twoFactorEnabled !== false;
+  const twoFARequired = profileReady && needsCodeVerification(appUser, twoFactorVerified);
 
   useEffect(() => {
     if (loading) return;
     if (!user) { router.replace("/login"); return; }
 
     // Si 2FA pas requise ou déjà vérifiée → redirection selon rôle
-    if (twoFactorVerified || appUser?.twoFactorEnabled === false) {
+    if (appUser && !needsCodeVerification(appUser, twoFactorVerified)) {
       router.replace(isAdmin ? "/admin" : "/dashboard");
       return;
     }

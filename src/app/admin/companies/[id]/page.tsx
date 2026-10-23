@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { formatXOF, formatDateTime, initials, colorForName } from "@/lib/utils";
 import type { Company, Transaction, Payout, LedgerEntry } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface MemberDetail {
   uid: string;
@@ -36,6 +37,10 @@ export default function AdminCompanyDetailPage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "transactions" | "payouts" | "team">("overview");
+
+  const pgTx = usePagination(data?.transactions ?? [], 20);
+  const pgPo = usePagination(data?.payouts ?? [], 20);
+  const pgMem = usePagination(data?.members ?? [], 20);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -171,7 +176,7 @@ export default function AdminCompanyDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-50">
-                  {transactions.map((tx) => (
+                  {pgTx.pageItems.map((tx) => (
                     <tr key={tx.id}>
                       <td className="px-4 py-3"><p className="font-medium">{tx.customerName ?? "—"}</p><p className="text-xs text-ink-500">{tx.customerPhone}</p></td>
                       <td className="px-4 py-3"><MethodPill method={tx.method} /></td>
@@ -184,6 +189,7 @@ export default function AdminCompanyDetailPage() {
               </table>
             </div>
           )}
+          <Pagination page={pgTx.page} pageCount={pgTx.pageCount} total={pgTx.total} onChange={pgTx.setPage} />
         </div>
       )}
 
@@ -204,7 +210,7 @@ export default function AdminCompanyDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-50">
-                  {payouts.map((po) => (
+                  {pgPo.pageItems.map((po) => (
                     <tr key={po.id}>
                       <td className="px-4 py-3"><p className="font-medium">{po.recipientName ?? "—"}</p><p className="text-xs text-ink-500">{po.recipientPhone}</p></td>
                       <td className="px-4 py-3"><PayoutBadge status={po.status} /></td>
@@ -216,13 +222,15 @@ export default function AdminCompanyDetailPage() {
               </table>
             </div>
           )}
+          <Pagination page={pgPo.page} pageCount={pgPo.pageCount} total={pgPo.total} onChange={pgPo.setPage} />
         </div>
       )}
 
       {/* Équipe */}
       {tab === "team" && (
+        <>
         <div className="card-base overflow-hidden divide-y divide-ink-50">
-          {members.map((m) => (
+          {pgMem.pageItems.map((m) => (
             <div key={m.uid} className="flex items-center justify-between px-4 py-3.5">
               <div className="flex items-center gap-3">
                 <UserAvatar photoURL={m.photoURL} name={m.displayName} size={36} />
@@ -237,6 +245,8 @@ export default function AdminCompanyDetailPage() {
             </div>
           ))}
         </div>
+        <Pagination page={pgMem.page} pageCount={pgMem.pageCount} total={pgMem.total} onChange={pgMem.setPage} />
+        </>
       )}
     </div>
   );

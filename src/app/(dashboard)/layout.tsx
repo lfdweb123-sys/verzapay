@@ -7,7 +7,7 @@ import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { FcmInit } from "@/components/layout/fcm-init";
 import { InactivityWarningModal } from "@/components/layout/inactivity-warning-modal";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, needsCodeVerification} from "@/lib/auth-context";
 import { useInactivityLogout } from "@/hooks/use-inactivity-logout";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -48,8 +48,7 @@ export default function DashboardGroupLayout({
       return;
     }
 
-    const requires2FA = appUser?.twoFactorEnabled !== false;
-    if (requires2FA && !twoFactorVerified) {
+    if (needsCodeVerification(appUser, twoFactorVerified)) {
       router.replace("/verify-2fa");
       return;
     }
@@ -92,8 +91,7 @@ export default function DashboardGroupLayout({
   const isAdminUser = Boolean((appUser as { isAdmin?: boolean } | null)?.isAdmin);
   if (isAdminUser) return null; // l'useEffect ci-dessus gère la redirection
 
-  const requires2FA = appUser?.twoFactorEnabled !== false;
-  if (requires2FA && !twoFactorVerified) return null;
+  if (needsCodeVerification(appUser, twoFactorVerified)) return null;
 
   return (
     <PreferencesProvider>

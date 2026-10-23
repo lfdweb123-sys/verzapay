@@ -7,6 +7,7 @@ import { PayoutBadge, EmptyState, Spinner } from "@/components/ui/badges";
 import { ArrowUpRight, Search } from "lucide-react";
 import { formatXOF, formatDateTime } from "@/lib/utils";
 import type { Payout } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 type EnrichedPayout = Payout & { companyName: string };
 
@@ -40,6 +41,7 @@ export default function AdminPayoutsPage() {
       (p) => p.companyName?.toLowerCase().includes(q) || p.recipientName?.toLowerCase().includes(q) || p.recipientPhone?.includes(q)
     );
   }, [payouts, search]);
+  const pg = usePagination(filtered, 20, search);
 
   const totalOut = filtered.filter((p) => p.status === "completed" || p.status === "processing").reduce((s, p) => s + p.amount, 0);
 
@@ -92,7 +94,7 @@ export default function AdminPayoutsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-50">
-                {filtered.map((po) => (
+                {pg.pageItems.map((po) => (
                   <tr key={po.id} className="hover:bg-ink-50/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap font-medium text-brand-800">{po.companyName}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -109,6 +111,8 @@ export default function AdminPayoutsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

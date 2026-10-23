@@ -27,6 +27,8 @@ export interface AppUser {
   isAdmin?: boolean;
   theme?: "light" | "dark"; // préférence d'affichage côté client
   twoFactorEnabled?: boolean;
+  // Posé UNIQUEMENT par le serveur après saisie correcte du code à 6 chiffres (règles Firestore : non modifiable côté client)
+  emailCodeVerified?: boolean;
   transactionTwoFactorEnabled?: boolean; // true par défaut — code 6 chiffres requis pour chaque retrait/paiement envoyé
   pendingEmail?: string | null; // demande de changement d'email en attente de validation admin
   pendingEmailRequestedAt?: number | null;

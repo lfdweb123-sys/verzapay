@@ -9,6 +9,7 @@ import {
   ShieldAlert, UserPlus, Loader2, Trash2, X, Mail,
   CheckCircle2, Crown,
 } from "lucide-react";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface AdminMember {
   uid: string;
@@ -23,6 +24,7 @@ export default function AdminTeamPage() {
   const { user } = useAuth();
   const { show } = useToast();
   const [members, setMembers] = useState<AdminMember[]>([]);
+  const pg = usePagination(members, 20);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -112,7 +114,7 @@ export default function AdminTeamPage() {
           <EmptyState title="Aucun administrateur" icon={ShieldAlert} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {members.map((m) => (
+            {pg.pageItems.map((m) => (
               <div key={m.uid} className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   <UserAvatar photoURL={m.photoURL} name={m.displayName} size={36} />
@@ -178,6 +180,8 @@ export default function AdminTeamPage() {
           </div>
         </div>
       )}
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

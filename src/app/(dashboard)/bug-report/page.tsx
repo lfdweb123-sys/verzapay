@@ -73,9 +73,9 @@ export default function BugReportPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-5">
-      <div>
-        <h1 className="flex items-center gap-2 text-lg font-medium text-ink-900"><Bug size={18} /> Signaler un bug</h1>
+    <div className="max-w-2xl mx-auto space-y-5">
+      <div className="text-center">
+        <h1 className="flex items-center justify-center gap-2 text-lg font-medium text-ink-900"><Bug size={18} /> Signaler un bug</h1>
         <p className="text-sm text-ink-500 mt-1">Décrivez le problème rencontré pour que nous puissions le corriger rapidement.</p>
       </div>
 

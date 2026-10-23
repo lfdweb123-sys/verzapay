@@ -10,6 +10,7 @@ import { Spinner, EmptyState } from "@/components/ui/badges";
 import { formatDateTime, cn } from "@/lib/utils";
 import { usePreferences } from "@/lib/preferences-context";
 import type { ShopOrder, ShopOrderStatus } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 const STATUS_LABELS: Record<ShopOrderStatus, { label: string; cls: string }> = {
   pending: { label: "En attente", cls: "bg-warning-50 text-warning-900" },
@@ -24,6 +25,7 @@ export default function ShopOrdersPage() {
   const { formatAmount } = usePreferences();
   const { show } = useToast();
   const [orders, setOrders] = useState<ShopOrder[]>([]);
+  const pg = usePagination(orders, 20);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function ShopOrdersPage() {
           <EmptyState title="Aucune commande" description="Les commandes de vos clients apparaîtront ici." icon={ShoppingBag} />
         ) : (
           <div className="divide-y divide-ink-50">
-            {orders.map((o) => {
+            {pg.pageItems.map((o) => {
               const cfg = STATUS_LABELS[o.status];
               return (
                 <div key={o.id} className="px-4 py-3.5">
@@ -81,6 +83,8 @@ export default function ShopOrdersPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

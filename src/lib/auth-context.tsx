@@ -31,6 +31,19 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Vérification par code à 6 chiffres OBLIGATOIRE : tant que le serveur n'a pas
+ * posé emailCodeVerified, l'accès est bloqué (même si la 2FA de connexion est
+ * désactivée). Ensuite, la 2FA de connexion s'applique comme avant.
+ */
+export function needsCodeVerification(
+  appUser: { emailCodeVerified?: boolean; twoFactorEnabled?: boolean } | null,
+  twoFactorVerified: boolean
+): boolean {
+  if (appUser?.emailCodeVerified !== true) return true;
+  return appUser?.twoFactorEnabled !== false && !twoFactorVerified;
+}
+
 function sessionKeyFor(uid: string) {
   return `verzapay_2fa_verified_${uid}`;
 }
@@ -108,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function setTwoFactorVerified(v: boolean) {
     setTwoFactorVerifiedState(v);
+    // Le serveur vient de poser emailCodeVerified : reflet local immédiat (rechargé depuis Firestore à la prochaine session)
+    if (v) setAppUser((prev) => (prev ? { ...prev, emailCodeVerified: true } : prev));
     if (user && typeof window !== "undefined") {
       if (v) sessionStorage.setItem(sessionKeyFor(user.uid), "true");
       else sessionStorage.removeItem(sessionKeyFor(user.uid));

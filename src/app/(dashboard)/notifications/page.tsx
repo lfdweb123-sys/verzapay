@@ -19,6 +19,7 @@ import { cn, formatRelative } from "@/lib/utils";
 import { Bell, Trash2, CheckSquare, Square, X } from "lucide-react";
 import Link from "next/link";
 import type { NotificationItem } from "@/types";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 const TYPE_COLORS: Record<NotificationItem["type"], string> = {
   payment: "bg-success-500",
@@ -36,6 +37,7 @@ export default function NotificationsPage() {
   const { user } = useAuth();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const pg = usePagination(notifications, 20);
   const [loading, setLoading] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -201,7 +203,7 @@ export default function NotificationsPage() {
             <p className="text-sm text-ink-500">Aucune notification pour le moment</p>
           </div>
         ) : (
-          notifications.map((n) => (
+          pg.pageItems.map((n) => (
             <NotificationRow
               key={n.id}
               notification={n}
@@ -271,6 +273,8 @@ export default function NotificationsPage() {
           </div>
         </div>
       )}
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }

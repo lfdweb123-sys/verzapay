@@ -8,6 +8,7 @@ import {
   RefreshCw, Clock, Phone, User, Hash, AlertCircle,
 } from "lucide-react";
 import { formatXOF } from "@/lib/utils";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 interface ReconciledItem {
   id: string;
@@ -51,6 +52,7 @@ export default function AdminReconciledPage() {
   const { user } = useAuth();
   const { show } = useToast();
   const [items, setItems] = useState<ReconciledItem[]>([]);
+  const pg = usePagination(items, 20);
   const [totalAmount, setTotalAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
@@ -140,7 +142,7 @@ export default function AdminReconciledPage() {
         </div>
       ) : (
         <div className="card-base divide-y divide-ink-100">
-          {items.map((item) => (
+          {pg.pageItems.map((item) => (
             <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -181,6 +183,8 @@ export default function AdminReconciledPage() {
           ))}
         </div>
       )}
+
+      <Pagination page={pg.page} pageCount={pg.pageCount} total={pg.total} onChange={pg.setPage} />
     </div>
   );
 }
