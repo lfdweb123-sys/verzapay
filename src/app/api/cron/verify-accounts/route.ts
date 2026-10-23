@@ -18,6 +18,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { hashSecret, generateSixDigitCode } from "@/lib/crypto-utils";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { hardDeleteUser } from "@/lib/user-admin";
+import { isSpamAccount } from "@/lib/spam";
 
 const LOG_PREFIX = "[VerifyAccounts]";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,7 +68,9 @@ export async function GET(req: NextRequest) {
         if (now - createdAtMs(u.createdAt) < MIN_ACCOUNT_AGE_MS) continue;
         stats.unverified++;
 
-        const overdue = typeof u.verifyDeadline === "number" && u.verifyDeadline < now;
+        // Comptes évidemment fictifs (nom aléatoire) : suppression immédiate, sans délai
+        const overdue = isSpamAccount({ displayName: u.displayName, email: u.email }) ||
+          (typeof u.verifyDeadline === "number" && u.verifyDeadline < now);
 
         // 2. Échéance dépassée → suppression
         if (overdue) {

@@ -65,6 +65,13 @@ service cloud.firestore {
           get(/databases/$(database)/documents/companies/$(companyId)).data.ownerUid == request.auth.uid;
         allow write: if false;
       }
+
+      // Logs webhook — lecture membres, écriture Admin SDK uniquement
+      match /webhookLogs/{logId} {
+        allow read: if request.auth != null &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.members.hasAny([request.auth.uid]);
+        allow write: if false;
+      }
     }
 
     // ───────────────────────────────────────────────

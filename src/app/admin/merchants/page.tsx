@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Pagination, usePagination } from "@/components/ui/pagination";
+import { isSpamAccount } from "@/lib/spam";
 
 interface Merchant {
   uid: string;
@@ -118,6 +119,14 @@ export default function AdminMerchantsPage() {
       return next;
     });
   }
+  const spamUids = useMemo(
+    () => merchants.filter((m) => isSpamAccount({ displayName: m.displayName, email: m.email })).map((m) => m.uid),
+    [merchants]
+  );
+  function selectSpam() {
+    setSelected(new Set(spamUids));
+  }
+
   function selectAllFiltered() {
     setSelected(new Set(filtered.map((m) => m.uid)));
   }
@@ -227,6 +236,17 @@ export default function AdminMerchantsPage() {
           />
         </div>
       </div>
+
+      {spamUids.length > 0 && (
+        <div className="card-base p-3 flex flex-wrap items-center justify-between gap-2 border-danger-200 bg-danger-50/50">
+          <p className="text-sm text-ink-800">
+            <strong>{spamUids.length}</strong> compte(s) détecté(s) comme spam (nom aléatoire / adresse suspecte).
+          </p>
+          <button onClick={selectSpam} className="btn-danger text-sm">
+            <Trash2 size={14} /> Sélectionner les comptes spam
+          </button>
+        </div>
+      )}
 
       {selected.size > 0 && (
         <div className="card-base p-3 flex flex-wrap items-center gap-2 border-brand-200 bg-brand-50/50">

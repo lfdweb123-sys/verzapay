@@ -30,12 +30,22 @@ export function isGibberish(value: string | null | undefined): boolean {
   return bad > 0 && bad === long.length && words.length <= 6;
 }
 
+/**
+ * Compte inscrit par un robot : nom affiché aléatoire (ex. "sKGvFBwKCFuVAkUiGlCkHmC"),
+ * ou adresse Gmail "à points" avec un nom d'un seul mot.
+ */
+export function isSpamAccount(a: { displayName?: string | null; email?: string | null }): boolean {
+  if (isGibberish(a.displayName)) return true;
+  const name = (a.displayName ?? "").trim();
+  return hasDottedLocalPart(a.email) && name !== "" && !/\s/.test(name);
+}
+
 function countLinks(s: string): number {
   return (s.match(/https?:\/\/|www\./gi) ?? []).length;
 }
 
 // Adresses Gmail "à points" typiques des bots : h.j.a.c.ob.s.28.m.n@gmail.com
-function hasDottedLocalPart(email: string | null | undefined): boolean {
+export function hasDottedLocalPart(email: string | null | undefined): boolean {
   const local = (email ?? "").split("@")[0] ?? "";
   return (local.match(/\./g) ?? []).length >= 4;
 }
