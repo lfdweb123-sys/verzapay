@@ -6,14 +6,9 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
+import { CountrySelect } from "@/components/ui/country-select";
 
 const SECTORS = ["E-commerce", "Restauration", "Santé", "Éducation", "Transport", "Services financiers", "Immobilier", "Technologie", "Agriculture", "Autre"];
-const COUNTRIES = ["BJ", "SN", "CI", "ML", "BF", "TG", "GN", "GW", "NE", "MR"];
-const COUNTRY_LABELS: Record<string, string> = {
-  BJ: "Bénin", SN: "Sénégal", CI: "Côte d'Ivoire", ML: "Mali", BF: "Burkina Faso",
-  TG: "Togo", GN: "Guinée", GW: "Guinée-Bissau", NE: "Niger", MR: "Mauritanie",
-};
-
 export default function NewCompanyPage() {
   const { user } = useAuth();
   const { show } = useToast();
@@ -73,9 +68,7 @@ export default function NewCompanyPage() {
           </div>
           <div>
             <label className="label-base">Pays *</label>
-            <select required value={country} onChange={(e) => setCountry(e.target.value)} className="input-base">
-              {COUNTRIES.map((c) => <option key={c} value={c}>{COUNTRY_LABELS[c]}</option>)}
-            </select>
+            <CountrySelect required value={country} onChange={setCountry} mode="all" />
           </div>
           <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 text-sm text-brand-800">
             Après la création, vous serez redirigé vers la vérification KYC. Cette étape est obligatoire pour activer les paiements.

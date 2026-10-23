@@ -1,5 +1,6 @@
 "use client";
 
+import { CurrencySelect } from "@/components/ui/currency-select";
 import { useEffect, useState } from "react";
 import { collection, query, orderBy, onSnapshot, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -23,6 +24,7 @@ export default function PayoutsPage() {
   const [showModal, setShowModal] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [amount, setAmount] = useState("");
+  const [poCurrency, setPoCurrency] = useState("XOF");
   const [phone, setPhone] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [note, setNote] = useState("");
@@ -50,8 +52,10 @@ export default function PayoutsPage() {
   function handleSubmitClick(e: React.FormEvent) {
     e.preventDefault();
     const amountNum = parseFloat(amount);
-    if (!amountNum || amountNum < 500) { show("Montant minimum : 500 XOF", "error"); return; }
-    if (amountNum > (activeCompany?.walletBalance ?? 0)) { show("Solde insuffisant", "error"); return; }
+    if (!amountNum || amountNum <= 0) { show("Saisissez un montant valide", "error"); return; }
+    // Hors XOF, la vérification (minimum 500 XOF, solde) se fait côté serveur sur l'équivalent converti.
+    if (poCurrency === "XOF" && amountNum < 500) { show("Montant minimum : 500 XOF", "error"); return; }
+    if (poCurrency === "XOF" && amountNum > (activeCompany?.walletBalance ?? 0)) { show("Solde insuffisant", "error"); return; }
     if (!phone) {
       show(method === "bank_transfer" ? "Renseignez le téléphone du bénéficiaire" : "Renseignez le numéro Mobile Money du bénéficiaire", "error");
       return;
@@ -76,7 +80,7 @@ export default function PayoutsPage() {
       const res = await fetch("/api/payments-engine/payouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: activeCompany.id, amount: amountNum, currency: "XOF", recipientPhone: phone, recipientName, note, uid: user.uid,
+        body: JSON.stringify({ companyId: activeCompany.id, amount: amountNum, currency: poCurrency, recipientPhone: phone, recipientName, note, uid: user.uid,
           method,
           bank: method === "bank_transfer"
             ? { bankName: bankName.trim(), accountHolderName: accountHolder.trim(), iban: iban.trim() || null, bicSwift: bicSwift.trim() || null, accountNumber: accountNumber.trim() || null }
@@ -196,8 +200,12 @@ export default function PayoutsPage() {
                 <p className="font-medium text-ink-900 tabular-nums">{formatAmount(activeCompany?.walletBalance ?? 0)}</p>
               </div>
               <div>
-                <label className="label-base">Montant (XOF) *</label>
-                <input type="number" min="500" required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="10 000" className="input-base" />
+                <label className="label-base">Montant *</label>
+                <div className="flex gap-2">
+                  <input type="number" min="0" step="any" required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="10 000" className="input-base" />
+                  <div className="w-28 shrink-0"><CurrencySelect value={poCurrency} onChange={setPoCurrency} /></div>
+                </div>
+                <p className="text-xs text-ink-500 mt-1">Le bénéficiaire reçoit dans la devise de son pays ; votre solde (XOF) est débité de l&apos;équivalent.</p>
               </div>
               <div>
                 <label className="label-base">Mode de décaissement</label>
@@ -279,7 +287,7 @@ export default function PayoutsPage() {
 
       <TransactionTwoFactorModal
         open={show2FA}
-        actionLabel={`retrait de ${formatAmount(parseFloat(amount) || 0)}`}
+        actionLabel={`retrait de ${poCurrency === "XOF" ? formatAmount(parseFloat(amount) || 0) : `${(parseFloat(amount) || 0).toLocaleString("fr-FR")} ${poCurrency}`}`}
         onClose={() => setShow2FA(false)}
         onVerified={handle2FAVerified}
       />

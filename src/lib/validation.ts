@@ -41,8 +41,8 @@ export const twoFactorVerifySchema = z.object({
 // ─── Paiements ──────────────────────────────────────────────────────────────
 export const createPaymentSchema = z.object({
   companyId,
-  amount: z.coerce.number().finite().min(100).max(50_000_000),
-  currency: z.literal("XOF").optional(),
+  amount: z.coerce.number().finite().positive().max(1e12), // bornes (100 XOF min) appliquées après conversion
+  currency: z.string().length(3).transform((c) => c.toUpperCase()).optional(),
   description: shortText(200),
   customerName: shortText(100),
   customerPhone: z.string().min(6, "Le numéro de téléphone du client est requis").max(30),
@@ -59,8 +59,8 @@ export const createPaymentSchema = z.object({
 
 export const createPayoutSchema = z.object({
   companyId,
-  amount: z.coerce.number().finite().min(500).max(50_000_000),
-  currency: z.literal("XOF").optional(),
+  amount: z.coerce.number().finite().positive().max(1e12), // bornes (500 XOF min) appliquées après conversion
+  currency: z.string().length(3).transform((c) => c.toUpperCase()).optional(),
   recipientPhone: z.string().min(6).max(30),
   recipientName: shortText(100),
   // Code de l'opérateur mobile money choisi par l'utilisateur côté front
@@ -93,7 +93,7 @@ export const createCompanySchema = z.object({
   name: z.string().min(2).max(120),
   legalName: shortText(150),
   sector: shortText(60),
-  country: z.string().length(2),
+  country: z.string().length(2).transform((c) => c.toUpperCase()), // code ISO ; la liste des pays vient de la synchro JoonaPay
 });
 
 // Infos légales : tous les champs restent optionnels. C'est volontaire et

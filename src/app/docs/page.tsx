@@ -430,7 +430,8 @@ export default function DocsPage() {
     "currency": "XOF",
     "description": "Commande #1234",
     "customer_name": "Kofi Mensah",
-    "customer_phone": "+22996000000"
+    "customer_phone": "+22996000000",
+    "merchant_reference": "CMD-1234"
   }'`} />
             <p className="text-sm font-medium mt-5 mb-2" style={{ color: c.text }}>
               Réponse
@@ -440,7 +441,58 @@ export default function DocsPage() {
   "status": "pending",
   "amount": 25000,
   "currency": "XOF",
+  "charged_amount": 25000,
+  "charged_currency": "XOF",
+  "exchange_rate": 1,
   "checkout_url": "${APP_BASE_URL}/pay/8f3a9b2c"
+}`} />
+
+            <h3 className="text-base font-medium mt-8" style={{ color: c.text }}>Devises et conversion automatique</h3>
+            <p className="mt-2 leading-relaxed" style={{ color: c.textMuted }}>
+              <code className="font-mono" style={{ color: c.inlineCodeText }}>amount</code> est exprimé dans la devise{" "}
+              <code className="font-mono" style={{ color: c.inlineCodeText }}>currency</code> (code ISO à 3 lettres, <strong style={{ color: c.text }}>XOF par défaut</strong>).
+              Le client est débité dans la devise de son pays (déduit du numéro de téléphone, voir <a href="#countries" style={{ color: c.brandCode }}>Pays disponibles</a>) :
+              Verzapay convertit automatiquement le montant. Exemple : <code className="font-mono" style={{ color: c.inlineCodeText }}>amount: 19.98, currency: &quot;EUR&quot;</code> avec
+              un numéro français <code className="font-mono" style={{ color: c.inlineCodeText }}>+33…</code> est débité 19,98 EUR, sans conversion.
+            </p>
+            <ul className="mt-3 space-y-1.5 text-sm list-disc pl-5" style={{ color: c.textMuted }}>
+              <li>La réponse indique le montant réellement débité (<code className="font-mono">charged_amount</code>, <code className="font-mono">charged_currency</code>) et le taux appliqué (<code className="font-mono">exchange_rate</code> : unités de <code className="font-mono">charged_currency</code> pour 1 unité de <code className="font-mono">currency</code>).</li>
+              <li>XOF, XAF et EUR sont liés à la parité fixe 1 EUR = 655,957 XOF/XAF. Les autres taux proviennent d&apos;une source de taux de change publique, rafraîchie plusieurs fois par jour.</li>
+              <li>Si aucun taux fiable n&apos;est disponible, la requête est refusée (<code className="font-mono">503</code>) : aucun taux n&apos;est jamais estimé.</li>
+              <li>Les limites (minimum 100 XOF, maximum 50 000 000 XOF) s&apos;appliquent à l&apos;équivalent en XOF.</li>
+              <li>Votre solde et vos commissions restent exprimés en XOF.</li>
+              <li><code className="font-mono">merchant_reference</code> (128 caractères max) est renvoyé tel quel dans le webhook : utilisez-le pour retrouver votre commande.</li>
+            </ul>
+
+            <div className="flex items-center gap-2 mt-8 mb-1">
+              <span
+                className="badge font-medium"
+                style={{ backgroundColor: c.brandCodeBg, color: c.brandCode }}
+              >
+                GET
+              </span>
+              <code className="font-mono text-sm" style={{ color: c.inlineCodeText }}>
+                /payments/{"{id}"}
+              </code>
+            </div>
+            <p className="mt-2 leading-relaxed" style={{ color: c.textMuted }}>
+              Retourne le statut d&apos;un paiement de votre compte (<code className="font-mono">pending</code>, <code className="font-mono">completed</code> ou <code className="font-mono">failed</code>).
+              C&apos;est la méthode recommandée pour <a href="#webhook-security" style={{ color: c.brandCode }}>vérifier une notification webhook</a>.
+            </p>
+            <CodeBlock dark={dark} code={`curl ${API_BASE_URL}/payments/pay_8f3a9b2c \\
+  -H "Authorization: Bearer vpz_sk_votre_cle"
+
+{
+  "id": "pay_8f3a9b2c",
+  "status": "completed",
+  "amount": 19.98,
+  "currency": "EUR",
+  "charged_amount": 19.98,
+  "charged_currency": "EUR",
+  "exchange_rate": 1,
+  "merchant_reference": "CMD-1234",
+  "created_at": 1792664000000,
+  "completed_at": 1792664120000
 }`} />
           </section>
 
@@ -452,6 +504,8 @@ export default function DocsPage() {
             <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
               Envoie des fonds depuis votre solde Verzapay vers un compte Mobile Money. Disponible uniquement
               pour les pays marqués <strong style={{ color: c.text }}>Disponible</strong> dans la colonne Décaissement ci-dessus.
+              Comme pour les paiements, <code className="font-mono" style={{ color: c.inlineCodeText }}>currency</code> (XOF par défaut) peut être n&apos;importe quelle devise :
+              le bénéficiaire reçoit dans la devise de son pays, et votre solde (en XOF) est débité de l&apos;équivalent. Minimum 500 XOF (équivalent).
             </p>
             <div className="flex items-center gap-2 mt-4 mb-1">
               <span
@@ -585,6 +639,67 @@ export default function DocsPage() {
     case 'payout.completed':
       // Marquer le retrait comme traité
       break;
+  }
+  res.status(200).json({ received: true });
+});`} />
+            <p className="text-sm font-medium mt-5 mb-2" style={{ color: c.text }}>
+              Contenu d&apos;une notification
+            </p>
+            <CodeBlock dark={dark} code={`{
+  "type": "payment.completed",
+  "paymentId": "pay_8f3a9b2c",
+  "merchantReference": "CMD-1234",
+  "amount": 19.98,
+  "currency": "EUR",
+  "chargedAmount": 19.98,
+  "chargedCurrency": "EUR",
+  "status": "completed",
+  "customerName": "Kofi Mensah",
+  "customerPhone": "+33612345678",
+  "companyId": "..."
+}`} />
+            <p className="mt-2 text-sm" style={{ color: c.textMuted }}>
+              <code className="font-mono">amount</code> et <code className="font-mono">currency</code> reprennent ce que vous avez demandé à la création.
+              Pour les décaissements, <code className="font-mono">payoutId</code> remplace <code className="font-mono">paymentId</code>.
+            </p>
+
+            <h3 id="webhook-security" className="text-base font-medium mt-8" style={{ color: c.text }}>Sécuriser votre webhook</h3>
+            <div
+              className="mt-3 rounded-lg p-3.5 text-sm"
+              style={{ backgroundColor: c.warningBg, border: `1px solid ${c.warningBorder}`, color: c.warningText }}
+            >
+              Les notifications Verzapay ne sont <strong>pas signées</strong> et il n&apos;existe pas de clé de webhook :
+              n&apos;importe qui connaissant votre URL pourrait y envoyer une fausse notification. Appliquez impérativement les mesures ci-dessous.
+            </div>
+            <ol className="mt-3 space-y-2 text-sm list-decimal pl-5" style={{ color: c.textMuted }}>
+              <li><strong style={{ color: c.text }}>Ajoutez un jeton secret à l&apos;URL</strong> que vous déclarez dans l&apos;espace Développeur, par exemple{" "}
+                <code className="font-mono">https://votre-site.com/webhook/verzapay?k=UNE_VALEUR_ALEATOIRE_DE_32_CARACTERES</code>. Générez-le vous-même, gardez-le secret
+                (variable d&apos;environnement), et rejetez (401) toute requête dont <code className="font-mono">k</code> ne correspond pas, avec une comparaison à temps constant.</li>
+              <li><strong style={{ color: c.text }}>Ne faites jamais confiance au contenu.</strong> À la réception de <code className="font-mono">payment.completed</code>, appelez{" "}
+                <code className="font-mono">GET /payments/{"{paymentId}"}</code> avec votre clé secrète et n&apos;activez la commande que si <code className="font-mono">status</code> vaut <code className="font-mono">completed</code>.</li>
+              <li><strong style={{ color: c.text }}>Recoupez avec votre commande</strong> : <code className="font-mono">merchant_reference</code>, montant et devise doivent correspondre à ce que vous avez créé.</li>
+              <li><strong style={{ color: c.text }}>Soyez idempotent</strong> : la même notification peut arriver plusieurs fois. Mémorisez les <code className="font-mono">paymentId</code> déjà traités.</li>
+              <li><strong style={{ color: c.text }}>HTTPS uniquement</strong>, réponse <code className="font-mono">200</code> rapide, traitement long en tâche de fond. Ignorez les <code className="font-mono">type</code> inconnus.</li>
+            </ol>
+            <CodeBlock dark={dark} code={`app.post('/webhook/verzapay', async (req, res) => {
+  // 1) jeton secret dans l'URL (comparaison à temps constant)
+  const given = Buffer.from(String(req.query.k || ''));
+  const secret = Buffer.from(process.env.VERZAPAY_WEBHOOK_TOKEN);
+  if (given.length !== secret.length || !crypto.timingSafeEqual(given, secret)) {
+    return res.status(401).end();
+  }
+
+  const event = req.body;
+  if (event.type === 'payment.completed') {
+    // 2) contre-vérification auprès de l'API (la notification seule ne prouve rien)
+    const r = await fetch(\`${API_BASE_URL}/payments/\${event.paymentId}\`, {
+      headers: { Authorization: 'Bearer ' + process.env.VERZAPAY_SECRET_KEY },
+    });
+    const pay = await r.json();
+    // 3) recoupement avec votre commande
+    if (pay.status === 'completed' && pay.merchant_reference === order.ref && pay.amount === order.amount) {
+      // 4) idempotence : ignorer si déjà traité, sinon activer la commande
+    }
   }
   res.status(200).json({ received: true });
 });`} />

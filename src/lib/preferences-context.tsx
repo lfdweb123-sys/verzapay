@@ -8,12 +8,11 @@ import { useAuth } from "@/lib/auth-context";
 export type Currency = "XOF" | "USD" | "EUR";
 export type ThemeMode = "system" | "light" | "dark";
 
-// Taux de conversion approximatifs (XOF est la devise de base)
-// En production, ces taux devraient être rafraîchis via une API de taux de change
-const RATES: Record<Currency, number> = {
+// Taux de repli : seule la parité EUR/XOF est fixe (655,957). Le taux USD vient de /api/public/fx (API de taux de change) ;
+// tant qu'il n'est pas chargé, les montants sont affichés en XOF plutôt qu'avec un taux inventé.
+const FALLBACK_RATES: Partial<Record<Currency, number>> = {
   XOF: 1,
-  USD: 1 / 655.957, // 1 USD ≈ 655.957 XOF (taux BCEAO fixe EUR/XOF, USD approx)
-  EUR: 1 / 655.957, // 1 EUR = 655.957 XOF (taux BCEAO fixe)
+  EUR: 1 / 655.957,
 };
 
 const SYMBOLS: Record<Currency, string> = {
@@ -42,6 +41,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [currency, setCurrencyState] = useState<Currency>("XOF");
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
+  const [rates, setRates] = useState<Partial<Record<Currency, number>>>(FALLBACK_RATES);
+
+  // Taux de change en direct (unités de chaque devise pour 1 XOF), rafraîchis toutes les heures côté serveur
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/public/fx")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { rates?: Record<string, number> } | null) => {
+        if (cancelled || !d?.rates) return;
+        setRates({ XOF: 1, EUR: d.rates.EUR ?? FALLBACK_RATES.EUR, USD: d.rates.USD });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Charger les préférences depuis Firestore
   useEffect(() => {
@@ -91,7 +104,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }
 
   function formatAmount(xofAmount: number): string {
-    const converted = xofAmount * RATES[currency];
+    const rate = rates[currency];
+    // Taux indisponible (ex. USD hors ligne) : on affiche en XOF, jamais avec un taux deviné.
+    if (!rate) return `${Math.round(xofAmount).toLocaleString("fr-FR")} XOF`;
+    const converted = xofAmount * rate;
     const symbol = SYMBOLS[currency];
     if (currency === "XOF") {
       return `${Math.round(converted).toLocaleString("fr-FR")} XOF`;

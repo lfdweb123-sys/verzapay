@@ -5,6 +5,8 @@ import { createJoonapayPayment, getJoonapayMisc } from "@/lib/joonapay";
 import { authenticateApiRequest, ApiAuthError } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { parseOrThrow } from "@/lib/validation";
+import { planCharge, planFields } from "@/lib/charge";
+import { FxError } from "@/lib/fx";
 import type { Transaction } from "@/types";
 
 const DEFAULT_DUE_DAYS = 7;
@@ -18,8 +20,10 @@ function computeDueDate(days: number): string {
 // Schéma du body PUBLIC (champs en snake_case, alignés sur la doc /docs),
 // distinct du schéma interne createPaymentSchema utilisé par le dashboard.
 const publicCreatePaymentSchema = z.object({
-  amount: z.coerce.number().finite().min(100).max(50_000_000),
-  currency: z.literal("XOF").optional(),
+  // Montant dans `currency` (défaut XOF). Convertit automatiquement vers la devise du pays du client ;
+  // les bornes (100 XOF min, 50 000 000 XOF max) s'appliquent à l'équivalent XOF.
+  amount: z.coerce.number().finite().positive().max(1e12),
+  currency: z.string().length(3).transform((c) => c.toUpperCase()).optional(),
   description: z.string().max(200).optional().nullable(),
   customer_name: z.string().max(100).optional().nullable(),
   customer_phone: z.string({ error: "customer_phone est requis" }).min(6, "customer_phone est requis").max(30),
@@ -155,6 +159,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Conversion : montant demandé (currency, défaut XOF) -> devise du pays du client (débit) et -> XOF (ledger).
+    const plan = await planCharge({ amount: body.amount, currency: body.currency, targetCurrency: country.currency, minLedger: 100, maxLedger: 50_000_000 });
+
     const dueDate = computeDueDate(DEFAULT_DUE_DAYS);
     const resolvedCustomerName = body.customer_name?.trim() || "Client";
 
@@ -170,8 +177,8 @@ export async function POST(req: NextRequest) {
     // confirmé et signé. On ne fait jamais confiance à une URL tierce fournie
     // en body pour appeler JoonaPay directement.
     const joonaRes = await createJoonapayPayment({
-      amount: body.amount,
-      currency: country.currency,
+      amount: plan.chargeAmount,
+      currency: plan.chargeCurrency,
       country_uuid: country.uuid,
       ...(paymentMethod ? { payment_method_uuid: paymentMethod.uuid } : {}),
       due_date: dueDate,
@@ -190,8 +197,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur lors de la création du paiement" }, { status: 502 });
     }
 
-    const commission = Math.round(body.amount * (company.commissionRate ?? 0.005));
-    const netAmount = body.amount - commission;
+    // Ledger en XOF : commission et net calculés sur l'équivalent XOF.
+    const commission = Math.round(plan.ledgerAmount * (company.commissionRate ?? 0.005));
+    const netAmount = plan.ledgerAmount - commission;
 
     const txMethod: Transaction["method"] =
       paymentMethod?.channel === "CREDIT_CARD"
@@ -204,8 +212,9 @@ export async function POST(req: NextRequest) {
       id: txRef.id,
       companyId: company.id,
       joonapayPaymentId: joonaRes.data?.uuid ?? null,
-      amount: body.amount,
-      currency: country.currency,
+      amount: plan.ledgerAmount,
+      currency: "XOF",
+      ...planFields(plan),
       commission,
       netAmount,
       method: txMethod,
@@ -232,8 +241,11 @@ export async function POST(req: NextRequest) {
       {
         id: txRef.id,
         status: "pending",
-        amount: body.amount,
-        currency: country.currency,
+        amount: plan.requestedAmount,
+        currency: plan.requestedCurrency,
+        charged_amount: plan.chargeAmount,
+        charged_currency: plan.chargeCurrency,
+        exchange_rate: plan.fxRate,
         checkout_url: joonaRes.data?.payment_link ?? null,
         payment_method: paymentMethod?.name ?? "any",
         channel: paymentMethod?.channel ?? "ANY",
@@ -242,6 +254,9 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     if (err instanceof ApiAuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    if (err instanceof FxError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error(`POST /api/v1/payments [companyId=${companyIdForLog ?? "unknown"}]:`, err);

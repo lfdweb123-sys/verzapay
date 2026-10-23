@@ -1,3 +1,5 @@
+import { planCharge, planFields } from "@/lib/charge";
+import { FxError } from "@/lib/fx";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { createJoonapayPayment, getJoonapayMisc } from "@/lib/joonapay";
@@ -116,12 +118,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Les prix de la boutique sont en XOF : conversion vers la devise du pays du client.
+    const plan = await planCharge({ amount: totalAmount, currency: "XOF", targetCurrency: country.currency, minLedger: 100, maxLedger: 50_000_000 });
+
     const dueDate = computeDueDate(DEFAULT_DUE_DAYS);
     const resolvedCustomerName = customerName?.trim() || "Client Verzapay";
 
     const joonaRes = await createJoonapayPayment({
-      amount: totalAmount,
-      currency: country.currency,
+      amount: plan.chargeAmount,
+      currency: plan.chargeCurrency,
       country_uuid: country.uuid,
       due_date: dueDate,
       description: `Commande boutique ${shop.name}`,
@@ -147,7 +152,8 @@ export async function POST(req: NextRequest) {
       companyId: shop.companyId,
       joonapayPaymentId: joonapayPaymentUuid,
       amount: totalAmount,
-      currency: country.currency,
+      currency: "XOF",
+      ...planFields(plan),
       commission,
       netAmount,
       method: "mobile_money",
@@ -186,6 +192,9 @@ export async function POST(req: NextRequest) {
       totalAmount,
     });
   } catch (err) {
+    if (err instanceof FxError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("POST /api/shop/orders:", err);
     const message = err instanceof Error ? err.message : "Erreur serveur";
     const isValidationError = message.startsWith("Donnée invalide");

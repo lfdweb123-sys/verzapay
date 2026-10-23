@@ -7,6 +7,8 @@ import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { notifyAdmin } from "@/lib/notify-admin";
 import { createPayoutSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { planCharge, planFields } from "@/lib/charge";
+import { FxError } from "@/lib/fx";
 import type { Payout } from "@/types";
 
 export async function POST(req: NextRequest) {
@@ -97,6 +99,10 @@ export async function POST(req: NextRequest) {
 
     const paymentMethod = isBank ? bankMethod! : (methodResolution as { status: "resolved"; method: NonNullable<typeof bankMethod> }).method;
 
+    // Conversion : montant saisi (devise choisie, défaut XOF) -> devise du pays du bénéficiaire (versement) et -> XOF (débit du wallet).
+    const plan = await planCharge({ amount, currency, targetCurrency: country.currency, minLedger: 500, maxLedger: 50_000_000 });
+    const ledger = plan.ledgerAmount;
+
     // ── Résolution du bénéficiaire JoonaPay (entity_uuid) ───────────────────
     // Recherche par téléphone ; création automatique si inexistant.
     let entity;
@@ -130,10 +136,10 @@ export async function POST(req: NextRequest) {
       newBalance = await db.runTransaction(async (tx) => {
         const freshSnap = await tx.get(companyRef);
         const freshBalance = freshSnap.data()?.walletBalance ?? 0;
-        if (freshBalance < amount) {
+        if (freshBalance < ledger) {
           throw new Error("INSUFFICIENT_BALANCE");
         }
-        const updated = freshBalance - amount;
+        const updated = freshBalance - ledger;
         tx.update(companyRef, { walletBalance: updated });
         return updated;
       });
@@ -151,14 +157,14 @@ export async function POST(req: NextRequest) {
     try {
       joonaRes = await createJoonapayPayout({
         country_uuid: country.uuid,
-        currency: currency ?? country.currency,
+        currency: plan.chargeCurrency,
         description: note ?? "Reversement Verzapay",
         merchant_transaction_id: poRef.id,
         fee_bearer: (company.feesPayout ?? "MERCHANT") as "MERCHANT" | "CUSTOMER",
         payouts: [
           {
             entity_uuid: entity.uuid,
-            amount,
+            amount: plan.chargeAmount,
             phone: recipientPhone,
             payment_method_uuid: paymentMethod.uuid,
             description: note ?? undefined,
@@ -168,12 +174,12 @@ export async function POST(req: NextRequest) {
     } catch (payoutErr) {
       // Erreur réseau/HTTP (4xx/5xx déjà levée par lib/joonapay.ts) : on recrédite.
       console.error("createJoonapayPayout:", payoutErr);
-      await companyRef.update({ walletBalance: newBalance + amount });
+      await companyRef.update({ walletBalance: newBalance + ledger });
       return NextResponse.json({ error: "Erreur lors du décaissement. Votre solde a été recrédité." }, { status: 502 });
     }
 
     if (!joonaRes.success) {
-      await companyRef.update({ walletBalance: newBalance + amount });
+      await companyRef.update({ walletBalance: newBalance + ledger });
       return NextResponse.json({ error: "Erreur lors du décaissement. Votre solde a été recrédité." }, { status: 502 });
     }
 
@@ -184,7 +190,7 @@ export async function POST(req: NextRequest) {
 
     await companyRef.collection("ledger").add({
       type: "debit",
-      amount,
+      amount: ledger,
       balanceAfter: newBalance,
       reference: joonapayGroupUuid ?? "manual",
       label: isBank ? `Virement bancaire → ${bank!.bankName}` : `Retrait → ${recipientPhone}`,
@@ -195,8 +201,9 @@ export async function POST(req: NextRequest) {
       id: poRef.id,
       companyId,
       joonapayPayoutId: joonapayGroupUuid,
-      amount,
-      currency: country.currency,
+      amount: ledger,
+      currency: "XOF",
+      ...planFields(plan),
       method: isBank ? "bank_transfer" : "mobile_money",
       recipientPhone,
       recipientName: recipientName ?? (isBank ? bank!.accountHolderName : null),
@@ -215,7 +222,7 @@ export async function POST(req: NextRequest) {
       uid,
       companyId,
       title: "Décaissement en cours",
-      body: `${amount.toLocaleString()} ${country.currency} envoyés vers ${recipientPhone}`,
+      body: `${plan.requestedAmount.toLocaleString("fr-FR")} ${plan.requestedCurrency} envoyés vers ${recipientPhone}`,
       type: "payout",
     });
 
@@ -224,10 +231,10 @@ export async function POST(req: NextRequest) {
     if (userEmail) {
       await sendTransactionalEmail({
         to: [{ email: userEmail, name: userSnap.data()?.displayName }],
-        subject: `Décaissement de ${amount.toLocaleString()} ${country.currency} initié`,
+        subject: `Décaissement de ${plan.requestedAmount.toLocaleString("fr-FR")} ${plan.requestedCurrency} initié`,
         htmlContent: emailTemplate({
           title: "Décaissement initié",
-          body: `Votre demande de décaissement de <strong>${amount.toLocaleString()} ${country.currency}</strong> vers <strong>${recipientPhone}</strong> est en cours de traitement.`,
+          body: `Votre demande de décaissement de <strong>${plan.requestedAmount.toLocaleString("fr-FR")} ${plan.requestedCurrency}</strong> vers <strong>${recipientPhone}</strong> est en cours de traitement.`,
           ctaLabel: "Voir le tableau de bord",
           ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payouts`,
         }),
@@ -235,14 +242,17 @@ export async function POST(req: NextRequest) {
     }
 
     await notifyAdmin({
-      title: `Demande de retrait — ${amount.toLocaleString()} ${country.currency}`,
-      body: `L'entreprise <strong>${company.name}</strong> a demandé un décaissement de <strong>${amount.toLocaleString()} ${country.currency}</strong> vers ${recipientPhone}.`,
+      title: `Demande de retrait — ${plan.requestedAmount.toLocaleString("fr-FR")} ${plan.requestedCurrency}`,
+      body: `L'entreprise <strong>${company.name}</strong> a demandé un décaissement de <strong>${plan.requestedAmount.toLocaleString("fr-FR")} ${plan.requestedCurrency}</strong> vers ${recipientPhone}.`,
       ctaLabel: "Voir dans l'admin",
       ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin`,
     });
 
     return NextResponse.json({ payoutId: poRef.id, joonapayId: joonapayGroupUuid });
   } catch (err) {
+    if (err instanceof FxError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("POST /api/joonapay/payouts:", err);
     const message = err instanceof Error ? err.message : "Erreur serveur";
     const isValidationError = message.startsWith("Donnée invalide");
