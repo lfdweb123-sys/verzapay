@@ -5,11 +5,14 @@ import { createJoonapayPayout, createJoonapayEntity, getJoonapayMisc } from "@/l
 import { authenticateApiRequest, ApiAuthError } from "@/lib/api-auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { parseOrThrow } from "@/lib/validation";
+import { planCharge, planFields } from "@/lib/charge";
+import { FxError } from "@/lib/fx";
 import type { Payout } from "@/types";
 
 const publicCreatePayoutSchema = z.object({
-  amount: z.coerce.number().finite().min(500).max(50_000_000),
-  currency: z.literal("XOF").optional(),
+  // Montant dans `currency` (défaut XOF), converti vers la devise du pays du bénéficiaire. Bornes (500 XOF min) sur l'équivalent XOF.
+  amount: z.coerce.number().finite().positive().max(1e12),
+  currency: z.string().length(3).transform((c) => c.toUpperCase()).optional(),
   recipient_phone: z.string().min(6).max(30),
   recipient_name: z.string().max(100).optional().nullable(),
   // Code opérateur explicite (ex: "MTN_CI") si le marchand le connaît déjà.
@@ -105,10 +108,6 @@ export async function POST(req: NextRequest) {
     const raw = await req.json();
     const body = parseOrThrow(publicCreatePayoutSchema, raw);
 
-    if ((company.walletBalance ?? 0) < body.amount) {
-      return NextResponse.json({ error: "Solde insuffisant pour ce décaissement." }, { status: 400 });
-    }
-
     const db = adminDb();
 
     const miscRes = await getJoonapayMisc({ transfer_enabled: true });
@@ -141,6 +140,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Conversion : montant demandé -> devise du pays du bénéficiaire (versement) et -> XOF (débit du wallet).
+    const plan = await planCharge({ amount: body.amount, currency: body.currency, targetCurrency: country.currency, minLedger: 500, maxLedger: 50_000_000 });
+    if ((company.walletBalance ?? 0) < plan.ledgerAmount) {
+      return NextResponse.json({ error: "Solde insuffisant pour ce décaissement." }, { status: 400 });
+    }
+
     // Une entité bénéficiaire JoonaPay est requise pour créer un payout.
     // On en crée une nouvelle à chaque appel : simple et sans état à gérer
     // côté Verzapay pour l'API publique (le dashboard, lui, réutilise des
@@ -164,13 +169,13 @@ export async function POST(req: NextRequest) {
       country_uuid: country.uuid,
       merchant_transaction_id: poRef.id,
       description: body.note ?? "Décaissement",
-      currency: country.currency,
+      currency: plan.chargeCurrency,
       fee_bearer: company.feesPayout ?? "MERCHANT",
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
       payouts: [
         {
           entity_uuid: entityRes.data.entity.uuid,
-          amount: body.amount,
+          amount: plan.chargeAmount,
           phone: body.recipient_phone,
           payment_method_uuid: method.uuid,
           merchant_transaction_id: poRef.id,
@@ -186,15 +191,16 @@ export async function POST(req: NextRequest) {
     // Débit optimiste du solde — recrédité par le webhook en cas d'échec
     // (cf. /api/webhooks/joonapay, branche payout_group, déjà en place).
     await db.collection("companies").doc(company.id).update({
-      walletBalance: (company.walletBalance ?? 0) - body.amount,
+      walletBalance: (company.walletBalance ?? 0) - plan.ledgerAmount,
     });
 
     const payout: Payout = {
       id: poRef.id,
       companyId: company.id,
       joonapayPayoutId: joonaRes.data?.payout_group?.uuid ?? null,
-      amount: body.amount,
-      currency: country.currency,
+      amount: plan.ledgerAmount,
+      currency: "XOF",
+      ...planFields(plan),
       method: "mobile_money",
       recipientPhone: body.recipient_phone,
       recipientName: body.recipient_name ?? null,
@@ -214,8 +220,11 @@ export async function POST(req: NextRequest) {
       {
         id: poRef.id,
         status: "pending",
-        amount: body.amount,
-        currency: country.currency,
+        amount: plan.requestedAmount,
+        currency: plan.requestedCurrency,
+        charged_amount: plan.chargeAmount,
+        charged_currency: plan.chargeCurrency,
+        exchange_rate: plan.fxRate,
         recipient_phone: body.recipient_phone,
         operator: method.name,
       },
@@ -223,6 +232,9 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     if (err instanceof ApiAuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    if (err instanceof FxError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error(`POST /api/v1/payouts [companyId=${companyIdForLog ?? "unknown"}]:`, err);

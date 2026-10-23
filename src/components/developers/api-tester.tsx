@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { Play, Loader2, FlaskConical } from "lucide-react";
+import { CurrencySelect } from "@/components/ui/currency-select";
 
 const PUBLIC_API_PATH = "/api/v1/payments";
 
 export function ApiTester() {
   const [secretKey, setSecretKey] = useState("");
   const [amount, setAmount] = useState("1000");
+  const [currency, setCurrency] = useState("XOF");
   const [customerName, setCustomerName] = useState("Test Verzapay");
   const [customerPhone, setCustomerPhone] = useState("");
   const [description, setDescription] = useState("Test API");
@@ -16,7 +18,7 @@ export function ApiTester() {
 
   const requestBody = {
     amount: Number(amount) || 0,
-    currency: "XOF",
+    currency,
     description,
     customer_name: customerName,
     customer_phone: customerPhone,
@@ -68,8 +70,8 @@ export function ApiTester() {
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
-            <label className="label-base">Montant (XOF) *</label>
-            <input type="number" min="100" required value={amount} onChange={(e) => setAmount(e.target.value)} className="input-base" />
+            <label className="label-base">Montant *</label>
+            <div className="flex gap-2"><input type="number" min="0" step="any" required value={amount} onChange={(e) => setAmount(e.target.value)} className="input-base" /><div className="w-28 shrink-0"><CurrencySelect value={currency} onChange={setCurrency} /></div></div>
           </div>
           <div>
             <label className="label-base">Téléphone du client * (format international)</label>

@@ -168,6 +168,13 @@ export interface Transaction {
   imageBase64?: string | null; // photo optionnelle du produit/service, max 500 Ko
   customerName?: string | null;
   customerPhone?: string | null;
+  // Conversion de devise : `amount` reste en XOF (ledger). Le marchand a demandé requestedAmount requestedCurrency ;
+  // le client est débité de chargeAmount chargeCurrency (devise du pays) au taux fxRate.
+  requestedAmount?: number | null;
+  requestedCurrency?: string | null;
+  chargeAmount?: number | null;
+  chargeCurrency?: string | null;
+  fxRate?: number | null;
   customerEmail?: string | null;
   createdAt: number;
   completedAt?: number | null;
@@ -185,6 +192,13 @@ export interface Payout {
   recipientBank?: string | null; // virement bancaire : nom de la banque
   recipientAccountLast4?: string | null; // virement bancaire : 4 derniers caractères du compte/IBAN
   status: PayoutStatus;
+  // Conversion de devise : `amount` reste en XOF (ledger). Le marchand a demandé requestedAmount requestedCurrency ;
+  // le bénéficiaire reçoit de chargeAmount chargeCurrency (devise du pays du bénéficiaire) au taux fxRate.
+  requestedAmount?: number | null;
+  requestedCurrency?: string | null;
+  chargeAmount?: number | null;
+  chargeCurrency?: string | null;
+  fxRate?: number | null;
   requestedBy: string; // uid
   approvedBy?: string | null;
   createdAt: number;

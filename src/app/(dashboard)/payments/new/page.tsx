@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCompany } from "@/lib/company-context";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
+import { CurrencySelect } from "@/components/ui/currency-select";
 import { ImageUploadField } from "@/components/payments/image-upload-field";
 import { TransactionTwoFactorModal } from "@/components/payments/transaction-two-factor-modal";
 import { usePreferences } from "@/lib/preferences-context";
@@ -33,6 +34,7 @@ export default function NewPaymentPage() {
   const { user, appUser } = useAuth();
   const { show } = useToast();
 
+  const [payCurrency, setPayCurrency] = useState("XOF");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -151,7 +153,7 @@ export default function NewPaymentPage() {
   function handleSubmitClick(e: React.FormEvent) {
     e.preventDefault();
     const amountNum = parseFloat(amount);
-    if (!amountNum || amountNum < 100) { show("Montant minimum : 100 XOF", "error"); return; }
+    if (!amountNum || amountNum <= 0) { show("Saisissez un montant valide", "error"); return; }
 
     if (buildFullPhone().replace(/\D/g, "").length < 8) {
       show("Le numéro de téléphone du client est requis", "error");
@@ -181,7 +183,7 @@ export default function NewPaymentPage() {
         body: JSON.stringify({
           companyId: activeCompany.id,
           amount: amountNum,
-          currency: "XOF",
+          currency: payCurrency,
           description: description || "Paiement Verzapay",
           customerName,
           customerPhone: buildFullPhone(),
@@ -244,8 +246,12 @@ export default function NewPaymentPage() {
       {!result ? (
         <form onSubmit={handleSubmitClick} className="card-base p-5 space-y-4">
           <div>
-            <label className="label-base">Montant (XOF) *</label>
-            <input type="number" min="100" required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="25 000" className="input-base" />
+            <label className="label-base">Montant *</label>
+            <div className="flex gap-2">
+              <input type="number" min="0" step="any" required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={payCurrency === "XOF" ? "25 000" : "19.98"} className="input-base" />
+              <div className="w-28 shrink-0"><CurrencySelect value={payCurrency} onChange={setPayCurrency} /></div>
+            </div>
+            <p className="text-xs text-ink-500 mt-1">Le client est débité dans la devise de son pays (convertie automatiquement). Minimum : 100 XOF (équivalent).</p>
           </div>
           <div>
             <label className="label-base">Description</label>

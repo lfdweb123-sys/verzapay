@@ -5,6 +5,8 @@ import { sendPushAndStore } from "@/lib/push";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import { createPaymentSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { planCharge, planFields } from "@/lib/charge";
+import { FxError } from "@/lib/fx";
 import type { Transaction } from "@/types";
 
 const LOG_PREFIX = "[CreatePayment]";
@@ -163,6 +165,7 @@ export async function POST(req: NextRequest) {
     const {
       companyId,
       amount,
+      currency: requestedCurrency,
       description,
       customerName,
       customerPhone,
@@ -286,6 +289,9 @@ export async function POST(req: NextRequest) {
 
     console.log(`${LOG_PREFIX} paymentMethod résolu:`, paymentMethod ? `${paymentMethod.channel}(${paymentMethod.name})` : "null (mode ANY)");
 
+    // Conversion : montant saisi (devise choisie, défaut XOF) -> devise du pays du client (débit) et -> XOF (ledger).
+    const plan = await planCharge({ amount, currency: requestedCurrency, targetCurrency: country.currency, minLedger: 100, maxLedger: 50_000_000 });
+
     const dueDate = computeDueDate(DEFAULT_DUE_DAYS);
 
     // customer_name est OBLIGATOIRE côté JoonaPay quand customer_uuid n'est pas fourni
@@ -298,8 +304,8 @@ export async function POST(req: NextRequest) {
     console.log(`${LOG_PREFIX} txRef.id généré: ${txRef.id}`);
 
     const joonaPayload = {
-      amount,
-      currency: country.currency,
+      amount: plan.chargeAmount,
+      currency: plan.chargeCurrency,
       country_uuid: country.uuid,
       ...(paymentMethod ? { payment_method_uuid: paymentMethod.uuid } : {}),
       due_date: dueDate,
@@ -327,8 +333,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Erreur lors de la création du paiement" }, { status: 502 });
     }
 
-    const commission = Math.round(amount * (company.commissionRate ?? 0.005));
-    const netAmount = amount - commission;
+    const commission = Math.round(plan.ledgerAmount * (company.commissionRate ?? 0.005));
+    const netAmount = plan.ledgerAmount - commission;
 
     // Si le marchand a laissé le choix au client (mode "ANY"), on ne connaît
     // pas encore la méthode réelle au moment de la création : on enregistre
@@ -345,8 +351,9 @@ export async function POST(req: NextRequest) {
       id: txRef.id,
       companyId,
       joonapayPaymentId: joonaRes.data?.uuid ?? null,
-      amount,
-      currency: country.currency,
+      amount: plan.ledgerAmount,
+      currency: "XOF",
+      ...planFields(plan),
       commission,
       netAmount,
       method: txMethod,
@@ -390,8 +397,8 @@ export async function POST(req: NextRequest) {
         companyId,
         title: "Lien de paiement créé",
         body: paymentMethod
-          ? `Un lien de ${amount.toLocaleString()} ${country.currency} via ${paymentMethod.name} a été créé.`
-          : `Un lien de ${amount.toLocaleString()} ${country.currency} a été créé (toutes méthodes disponibles).`,
+          ? `Un lien de ${plan.requestedAmount.toLocaleString("fr-FR")} ${plan.requestedCurrency} via ${paymentMethod.name} a été créé.`
+          : `Un lien de ${plan.requestedAmount.toLocaleString("fr-FR")} ${plan.requestedCurrency} a été créé (toutes méthodes disponibles).`,
         type: "payment",
       });
       console.log(`${LOG_PREFIX} Push envoyée à uid=${uid}`);
@@ -406,8 +413,8 @@ export async function POST(req: NextRequest) {
         await sendPaymentLinkEmail({
           customerEmail,
           customerName: resolvedCustomerName,
-          amount,
-          currency: country.currency,
+          amount: plan.chargeAmount,
+          currency: plan.chargeCurrency,
           description: description ?? "Paiement Verzapay",
           checkoutUrl,
         });
@@ -423,11 +430,16 @@ export async function POST(req: NextRequest) {
       paymentId: txRef.id,
       joonapayId: joonaRes.data?.uuid,
       checkoutUrl,
+      chargedAmount: plan.chargeAmount,
+      chargedCurrency: plan.chargeCurrency,
       paymentMethodName: paymentMethod?.name ?? "Toutes les méthodes",
       channel: paymentMethod?.channel ?? "ANY",
       emailSent: !!customerEmail,
     });
   } catch (err) {
+    if (err instanceof FxError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error(`${LOG_PREFIX} ❌ Erreur non gérée:`, err);
     const message = err instanceof Error ? err.message : "Erreur serveur";
     const isValidationError = message.startsWith("Donnée invalide");

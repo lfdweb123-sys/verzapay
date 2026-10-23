@@ -1,4 +1,5 @@
 import { alertLargePaymentSafe } from "@/lib/fraud-alert";
+import { publicAmounts } from "@/lib/charge";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendPushAndStore } from "@/lib/push";
@@ -268,8 +269,9 @@ export async function POST(req: NextRequest) {
             type: "payment.completed",
             paymentId: txDoc.id,
             merchantReference: tx.merchantReference ?? null,
-            amount: tx.amount,
-            currency: tx.currency,
+            ...publicAmounts(tx),
+            chargedAmount: tx.chargeAmount ?? null,
+            chargedCurrency: tx.chargeCurrency ?? null,
             status: "completed",
             customerName: tx.customerName ?? null,
             customerPhone: tx.customerPhone ?? null,
@@ -287,8 +289,9 @@ export async function POST(req: NextRequest) {
             type: "payment.failed",
             paymentId: txDoc.id,
             merchantReference: tx.merchantReference ?? null,
-            amount: tx.amount,
-            currency: tx.currency,
+            ...publicAmounts(tx),
+            chargedAmount: tx.chargeAmount ?? null,
+            chargedCurrency: tx.chargeCurrency ?? null,
             status: "failed",
             customerName: tx.customerName ?? null,
             customerPhone: tx.customerPhone ?? null,
@@ -403,8 +406,7 @@ export async function POST(req: NextRequest) {
           type: newStatus === "completed" ? "payout.completed" : "payout.failed",
           payoutId: poDoc.id,
           merchantReference: po.merchantReference ?? null,
-          amount: po.amount,
-          currency: po.currency,
+          ...publicAmounts(po),
           status: newStatus,
           refundAmount: refundAmount || undefined,
           recipientPhone: po.recipientPhone ?? null,
