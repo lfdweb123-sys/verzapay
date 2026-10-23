@@ -19,6 +19,7 @@ const COLUMNS = [
       { label: "À propos", href: "/about" },
       { label: "Sécurité & conformité", href: "/security" },
       { label: "Centre d'aide", href: "/help" },
+      { label: "Pays disponibles", href: "/countries" },
       { label: "Contact", href: "/contact" },
     ],
   },
