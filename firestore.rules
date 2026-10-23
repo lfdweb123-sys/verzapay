@@ -7,13 +7,24 @@ service cloud.firestore {
     // Utilisateurs
     // ───────────────────────────────────────────────
     match /users/{uid} {
-      // emailCodeVerified* : posés uniquement par le serveur (Admin SDK) après saisie du code à 6 chiffres
       allow read: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && request.auth.uid == uid
-        && !request.resource.data.diff(resource.data).affectedKeys()
-             .hasAny(['emailCodeVerified', 'emailCodeVerifiedAt', 'verifyRequestedAt', 'verifyDeadline']);
+
+      // Création : jamais admin, jamais vérifié (champs posés par le serveur uniquement)
       allow create: if request.auth != null && request.auth.uid == uid
-        && !request.resource.data.keys().hasAny(['emailCodeVerified', 'emailCodeVerifiedAt']);
+        && request.resource.data.get('isAdmin', false) == false
+        && !request.resource.data.keys().hasAny([
+          'emailCodeVerified', 'emailCodeVerifiedAt', 'verifyRequestedAt', 'verifyDeadline',
+          'disabled', 'deleted'
+        ]);
+
+      // Mise à jour : liste blanche des champs que l'utilisateur peut modifier lui-même.
+      // isAdmin, emailCodeVerified, disabled, email... ne passent que par le serveur (Admin SDK).
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'theme', 'themeMode', 'currency', 'activeCompanyId',
+          'fcmTokens', 'twoFactorEnabled', 'transactionTwoFactorEnabled'
+        ]);
+
       allow delete: if false;
     }
 
@@ -24,13 +35,17 @@ service cloud.firestore {
       allow read: if request.auth != null &&
         resource.data.members.hasAny([request.auth.uid]);
 
-      // Mise à jour limitée aux membres ; les champs financiers sensibles
-      // (walletBalance, apiKeySecretHash, kycStatus...) sont en pratique
-      // toujours écrits par les routes API serveur (Admin SDK), qui
-      // contournent ces règles. Cette règle couvre les mises à jour
-      // légitimes faites depuis le client (ex: legalInfo, displayName).
-      allow update: if request.auth != null &&
-        resource.data.members.hasAny([request.auth.uid]);
+      // Mise à jour client : liste blanche (webhook + frais à charge). Tout le reste
+      // (walletBalance, kycStatus, suspended, members, ownerUid, legalInfo, clés API...)
+      // est écrit uniquement par les routes API serveur (Admin SDK), qui contournent ces règles.
+      allow update: if request.auth != null
+        && resource.data.members.hasAny([request.auth.uid])
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['webhookUrl', 'feesCollection', 'feesPayout'])
+        && (!('feesCollection' in request.resource.data)
+            || request.resource.data.feesCollection in ['MERCHANT', 'CUSTOMER'])
+        && (!('feesPayout' in request.resource.data)
+            || request.resource.data.feesPayout in ['MERCHANT', 'CUSTOMER']);
 
       allow create: if false; // uniquement via /api/companies/create (Admin SDK)
       allow delete: if false;
