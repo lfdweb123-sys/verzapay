@@ -1,32 +1,14 @@
 import { NextResponse } from "next/server";
 import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { getJoonapayMisc } from "@/lib/joonapay";
+import { probe, type Check, type Status } from "@/lib/status-probe";
 
 // Route PUBLIQUE : état en temps réel des services. Ne renvoie que des états
 // et des temps de réponse — aucun détail technique ni donnée utilisateur.
 // Cache mémoire de 15 s pour qu'un afflux de visiteurs ne multiplie pas les sondes.
 
-type Status = "operational" | "degraded" | "outage";
-interface Check { id: string; name: string; description: string; status: Status; latencyMs: number | null }
-
 let cache: { at: number; payload: unknown } | null = null;
 const TTL_MS = 15_000;
-const TIMEOUT_MS = 5_000;
-const SLOW_MS = 2_500;
-
-async function probe(id: string, name: string, description: string, fn: () => Promise<unknown>): Promise<Check> {
-  const started = Date.now();
-  try {
-    await Promise.race([
-      fn(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS)),
-    ]);
-    const latencyMs = Date.now() - started;
-    return { id, name, description, status: latencyMs > SLOW_MS ? "degraded" : "operational", latencyMs };
-  } catch {
-    return { id, name, description, status: "outage", latencyMs: null };
-  }
-}
 
 export async function GET() {
   if (cache && Date.now() - cache.at < TTL_MS) {
@@ -70,7 +52,24 @@ export async function GET() {
   const outages = components.filter((c) => c.status === "outage").length;
   const overall: Status = outages >= 2 ? "outage" : worst;
 
-  const payload = { updatedAt: Date.now(), overall, components };
-  cache = { at: Date.now(), payload };
+  // Historique réel : une vérification enregistrée par minute (quel que soit le nombre de visiteurs),
+  // pour que les barres reflètent l'état passé du service et pas seulement la visite en cours.
+  const now = Date.now();
+  const bucket = Math.floor(now / 60_000);
+  let history: { at: number; overall: Status; c: Record<string, Status> }[] = [];
+  try {
+    const db = adminDb();
+    const col = db.collection("statusChecks");
+    await col.doc(String(bucket)).create({
+      at: now, overall, c: Object.fromEntries(components.map((c) => [c.id, c.status])),
+    }).catch(() => undefined); // déjà enregistrée pour cette minute
+    const snap = await col.orderBy("at", "desc").limit(60).get();
+    history = snap.docs.map((d) => d.data() as { at: number; overall: Status; c: Record<string, Status> }).reverse();
+  } catch {
+    history = [];
+  }
+
+  const payload = { updatedAt: now, overall, components, history };
+  cache = { at: now, payload };
   return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
 }

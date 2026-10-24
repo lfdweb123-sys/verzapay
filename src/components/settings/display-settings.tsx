@@ -57,7 +57,7 @@ export function DisplaySettings() {
           <p className="font-medium text-ink-900">Devise d&apos;affichage</p>
         </div>
         <p className="text-sm text-ink-500">
-          Les montants de toute la plateforme seront convertis et affichés dans la devise choisie.
+          Les montants de cette entreprise seront convertis et affichés dans la devise choisie. Chaque entreprise a sa propre devise : changer celle-ci ne modifie pas vos autres entreprises.
           Exemple : {formatAmount(10000)}
         </p>
         {savingCurrency && <Loader2 size={14} className="animate-spin text-brand-700" />}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { getNavId } from "@/lib/nav-state";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -11,10 +12,16 @@ import { Spinner } from "@/components/ui/badges";
 import type { ShopProduct } from "@/types";
 
 export default function EditProductPage() {
-  const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { show } = useToast();
   const router = useRouter();
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    const stored = getNavId("product");
+    if (!stored) router.replace("/shop");
+    else setId(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [product, setProduct] = useState<ShopProduct | null>(null);
   const [loading, setLoading] = useState(true);

@@ -6,25 +6,29 @@ import { cn } from "@/lib/utils";
 
 type Status = "operational" | "degraded" | "outage";
 interface Check { id: string; name: string; description: string; status: Status; latencyMs: number | null }
-interface Payload { updatedAt: number; overall: Status; components: Check[] }
+interface HistoryPoint { at: number; overall: Status; c: Record<string, Status> }
+interface Payload { updatedAt: number; overall: Status; components: Check[]; history?: HistoryPoint[] }
 
 const REFRESH_MS = 30_000;
-const HISTORY = 30;
+const HISTORY = 60;
+
+// Couleurs explicites (vert = tout va bien, orange = ralenti, rouge = erreur)
+const COLOR: Record<Status, string> = { operational: "#16a34a", degraded: "#f59e0b", outage: "#dc2626" };
+const TEXT: Record<Status, string> = { operational: "#15803d", degraded: "#b45309", outage: "#b91c1c" };
+const SOFT: Record<Status, string> = { operational: "#f0fdf4", degraded: "#fffbeb", outage: "#fef2f2" };
+const EDGE: Record<Status, string> = { operational: "#bbf7d0", degraded: "#fde68a", outage: "#fecaca" };
 
 const LABEL: Record<Status, string> = { operational: "Opérationnel", degraded: "Ralenti", outage: "Indisponible" };
-const BANNER: Record<Status, { text: string; box: string; icon: typeof CheckCircle2 }> = {
-  operational: { text: "Tous les systèmes sont opérationnels", box: "bg-success-50 text-success-700 border-success-200", icon: CheckCircle2 },
-  degraded: { text: "Certains services sont ralentis", box: "bg-warning-50 text-warning-900 border-warning-200", icon: AlertTriangle },
-  outage: { text: "Incident en cours sur certains services", box: "bg-danger-50 text-danger-700 border-danger-200", icon: XCircle },
+const BANNER: Record<Status, { text: string; icon: typeof CheckCircle2 }> = {
+  operational: { text: "Tous les systèmes sont opérationnels", icon: CheckCircle2 },
+  degraded: { text: "Certains services sont ralentis", icon: AlertTriangle },
+  outage: { text: "Erreur : incident en cours sur certains services", icon: XCircle },
 };
-const DOT: Record<Status, string> = { operational: "bg-success-600", degraded: "bg-warning-600", outage: "bg-danger-600" };
 
 export function StatusBoard() {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  // Historique de la session : une barre par vérification (par service)
-  const [history, setHistory] = useState<Record<string, Status[]>>({});
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -34,11 +38,6 @@ export function StatusBoard() {
       const json: Payload = await res.json();
       setData(json);
       setError(false);
-      setHistory((prev) => {
-        const next = { ...prev };
-        for (const c of json.components) next[c.id] = [...(prev[c.id] ?? []), c.status].slice(-HISTORY);
-        return next;
-      });
     } catch {
       setError(true);
     } finally {
@@ -64,7 +63,10 @@ export function StatusBoard() {
 
   return (
     <div className="space-y-6">
-      <div className={cn("flex items-center gap-3 rounded-xl border px-4 py-3.5", banner.box)}>
+      <div
+        className="flex items-center gap-3 rounded-xl border px-4 py-3.5"
+        style={{ backgroundColor: SOFT[data.overall], borderColor: EDGE[data.overall], color: TEXT[data.overall] }}
+      >
         <banner.icon size={20} className="shrink-0" />
         <p className="font-medium">{banner.text}</p>
       </div>
@@ -87,9 +89,8 @@ export function StatusBoard() {
                 <p className="text-xs text-ink-500 mt-0.5">{c.description}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className={cn("text-sm font-medium inline-flex items-center gap-1.5",
-                  c.status === "operational" ? "text-success-700" : c.status === "degraded" ? "text-warning-900" : "text-danger-700")}>
-                  <span className={cn("w-2 h-2 rounded-full", DOT[c.status])} />
+                <p className="text-sm font-medium inline-flex items-center gap-1.5" style={{ color: TEXT[c.status] }}>
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLOR[c.status] }} />
                   {LABEL[c.status]}
                 </p>
                 {c.latencyMs !== null && c.latencyMs > 0 && (
@@ -99,15 +100,29 @@ export function StatusBoard() {
             </div>
             <div className="flex gap-0.5 mt-3" aria-hidden>
               {Array.from({ length: HISTORY }).map((_, i) => {
-                const h = history[c.id] ?? [];
-                const s = h[h.length - HISTORY + i];
-                return <span key={i} className={cn("h-5 flex-1 rounded-sm", s ? DOT[s] : "bg-ink-100")} />;
+                const h = (data.history ?? []).map((p) => p.c[c.id]).filter(Boolean) as Status[];
+                // La dernière barre est toujours l'état en direct
+                const series = h.length ? [...h.slice(0, -1), c.status] : [c.status];
+                const s = series[series.length - HISTORY + i];
+                return (
+                  <span
+                    key={i}
+                    className="h-5 flex-1 rounded-sm"
+                    style={{ backgroundColor: s ? COLOR[s] : "#e5e5e0" }}
+                    title={s ? LABEL[s] : "Pas de donnée"}
+                  />
+                );
               })}
             </div>
           </div>
         ))}
       </div>
-      <p className="text-xs text-ink-400">Les barres montrent les vérifications effectuées pendant votre visite sur cette page.</p>
+      <p className="text-xs text-ink-400 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span>Une barre = une minute (les 60 dernières).</span>
+        <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: COLOR.operational }} /> Opérationnel</span>
+        <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: COLOR.degraded }} /> Ralenti</span>
+        <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: COLOR.outage }} /> Erreur</span>
+      </p>
     </div>
   );
 }

@@ -6,15 +6,14 @@ import { MessageCircle } from "lucide-react";
 const WHATSAPP_NUMBER = "22962758703";
 const WHATSAPP_TEXT = encodeURIComponent("Bonjour, je souhaite avoir des informations sur Verzapay.");
 
-// Le chat est masqué de 20h à 6h, tous les jours, à l'heure du Bénin (UTC+1).
-const TIMEZONE = "Africa/Porto-Novo";
-const HIDE_FROM_HOUR = 20;
+// Le chat est visible chaque jour de 6h à 20h (heure du Bénin, UTC+1, sans changement d'heure),
+// masqué de 20h à 6h.
+const BENIN_UTC_OFFSET_HOURS = 1;
 const SHOW_FROM_HOUR = 6;
+const HIDE_FROM_HOUR = 20;
 
 function isChatOpen(now: Date = new Date()): boolean {
-  const hour = Number(
-    new Intl.DateTimeFormat("fr-FR", { hour: "numeric", hour12: false, timeZone: TIMEZONE }).format(now)
-  ) % 24;
+  const hour = (now.getUTCHours() + BENIN_UTC_OFFSET_HOURS) % 24;
   return hour >= SHOW_FROM_HOUR && hour < HIDE_FROM_HOUR;
 }
 

@@ -13,6 +13,7 @@ import {
 import { formatXOF, formatDate, initials, colorForName } from "@/lib/utils";
 import type { Company, KycStatus } from "@/types";
 import { Pagination, usePagination } from "@/components/ui/pagination";
+import { setNavId } from "@/lib/nav-state";
 
 const STATUS_FILTERS: { label: string; value: KycStatus | "all" }[] = [
   { label: "Tous", value: "all" },
@@ -232,7 +233,7 @@ function AdminCompaniesContent() {
               <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-3.5 flex-wrap">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                 <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleOne(c.id)} className="rounded shrink-0" aria-label={`Sélectionner ${c.name}`} />
-                <Link href={`/admin/companies/${c.id}`} className="flex items-center gap-3 min-w-0 flex-1 group">
+                <Link href="/admin/companies/detail" onClick={() => setNavId("company", c.id)} className="flex items-center gap-3 min-w-0 flex-1 group">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white text-sm font-semibold"
                     style={{ background: c.logoColor ?? colorForName(c.name) }}
@@ -288,7 +289,7 @@ function AdminCompaniesContent() {
                       <Ban size={14} />
                     </button>
                   )}
-                  <Link href={`/admin/companies/${c.id}`} className="w-8 h-8 rounded-lg hover:bg-ink-100 flex items-center justify-center transition-colors">
+                  <Link href="/admin/companies/detail" onClick={() => setNavId("company", c.id)} className="w-8 h-8 rounded-lg hover:bg-ink-100 flex items-center justify-center transition-colors">
                     <ChevronRight size={16} className="text-ink-400" />
                   </Link>
                 </div>

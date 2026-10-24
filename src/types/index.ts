@@ -73,6 +73,8 @@ export interface Company {
   sector?: string;
   country: string;
   // Frais à charge : MERCHANT = le marchand / CUSTOMER = le client (encaissement) ou le bénéficiaire (décaissement)
+  // Devise d'affichage de CETTE entreprise (propre à chaque entreprise, jamais partagée)
+  currency?: "XOF" | "USD" | "EUR";
   feesCollection?: "MERCHANT" | "CUSTOMER";
   feesPayout?: "MERCHANT" | "CUSTOMER";
   ownerUid: string;
@@ -191,6 +193,11 @@ export interface Payout {
   method: PaymentMethod;
   recipientPhone?: string | null;
   recipientName?: string | null;
+  manual?: boolean; // virement bancaire : traité manuellement par l'équipe Verzapay (pas d'envoi automatique)
+  // Valeurs MASQUÉES (extrémités visibles). Les coordonnées complètes sont dans companies/{id}/payoutSecrets (serveur uniquement).
+  bankDetails?: { bankName: string; accountHolderName: string; iban?: string | null; bicSwift?: string | null; accountNumber?: string | null } | null;
+  bankSecrets?: { bankName: string; accountHolderName: string; iban?: string | null; bicSwift?: string | null; accountNumber?: string | null } | null; // admin uniquement (API)
+  adminNote?: string | null;
   recipientBank?: string | null; // virement bancaire : nom de la banque
   recipientAccountLast4?: string | null; // virement bancaire : 4 derniers caractères du compte/IBAN
   status: PayoutStatus;

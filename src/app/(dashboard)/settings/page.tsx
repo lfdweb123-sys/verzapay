@@ -124,7 +124,7 @@ export default function SettingsPage() {
                 </div>
                 {activeCompany.kycStatus !== "approved" && (
                   <Link
-                    href={`/kyc-pending?companyId=${activeCompany.id}`}
+                    href="/kyc-pending"
                     className="inline-flex items-center gap-1 text-sm text-brand-600 font-medium hover:text-brand-700"
                   >
                     {activeCompany.kycStatus === "not_started" ? "Démarrer" : "Voir le statut"}

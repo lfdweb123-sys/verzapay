@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
+import { useCompany } from "@/lib/company-context";
 
 export type Currency = "XOF" | "USD" | "EUR";
 export type ThemeMode = "system" | "light" | "dark";
@@ -39,7 +40,15 @@ export function usePreferences() {
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [currency, setCurrencyState] = useState<Currency>("XOF");
+  const { activeCompany } = useCompany();
+  // Devise PAR ENTREPRISE : stockée sur le document de l'entreprise, jamais partagée entre
+  // entreprises. Sans entreprise active (ex. espace admin), repli sur la préférence du compte.
+  const [userCurrency, setUserCurrency] = useState<Currency>("XOF");
+  const [optimistic, setOptimistic] = useState<{ companyId: string; value: Currency } | null>(null);
+  const companyCurrency = (activeCompany?.currency as Currency | undefined) ?? userCurrency;
+  const currency: Currency = activeCompany
+    ? (optimistic && optimistic.companyId === activeCompany.id ? optimistic.value : companyCurrency)
+    : userCurrency;
   const [themeMode, setThemeModeState] = useState<ThemeMode>("system");
   const [rates, setRates] = useState<Partial<Record<Currency, number>>>(FALLBACK_RATES);
 
@@ -63,7 +72,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     const unsub = onSnapshot(ref, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        if (data.currency) setCurrencyState(data.currency as Currency);
+        if (data.currency) setUserCurrency(data.currency as Currency);
         if (data.themeMode) setThemeModeState(data.themeMode as ThemeMode);
       }
     });
@@ -94,7 +103,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [themeMode]);
 
   async function setCurrency(c: Currency) {
-    setCurrencyState(c);
+    if (activeCompany) {
+      setOptimistic({ companyId: activeCompany.id, value: c });
+      await updateDoc(doc(db, "companies", activeCompany.id), { currency: c });
+      return;
+    }
+    setUserCurrency(c);
     if (user) await updateDoc(doc(db, "users", user.uid), { currency: c });
   }
 

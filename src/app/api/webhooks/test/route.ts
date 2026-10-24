@@ -30,6 +30,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
+    if (company.kycStatus !== "approved") {
+      return NextResponse.json({ error: "Vous n'êtes pas autorisé : la vérification d'identité de l'entreprise doit d'abord être validée." }, { status: 403 });
+    }
+
     const webhookUrl: string | undefined = company.webhookUrl;
     if (!webhookUrl) {
       return NextResponse.json({ error: "Aucune URL de webhook enregistrée. Sauvegardez d'abord votre URL." }, { status: 400 });

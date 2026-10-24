@@ -41,7 +41,9 @@ service cloud.firestore {
       allow update: if request.auth != null
         && resource.data.members.hasAny([request.auth.uid])
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['webhookUrl', 'feesCollection', 'feesPayout'])
+             .hasOnly(['webhookUrl', 'feesCollection', 'feesPayout', 'currency'])
+        && (!('currency' in request.resource.data)
+            || request.resource.data.currency in ['XOF', 'USD', 'EUR'])
         && (!('feesCollection' in request.resource.data)
             || request.resource.data.feesCollection in ['MERCHANT', 'CUSTOMER'])
         && (!('feesPayout' in request.resource.data)

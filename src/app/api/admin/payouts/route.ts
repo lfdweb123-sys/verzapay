@@ -21,7 +21,18 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    const enriched = payouts.map((p) => ({ ...p, companyName: companyNames[p.companyId] ?? "—" }));
+    // Virements manuels en attente : l'admin a besoin des coordonnées complètes (stockées à part)
+    const secrets: Record<string, unknown> = {};
+    await Promise.all(
+      payouts
+        .filter((p) => p.manual === true && p.status === "pending")
+        .map(async (p) => {
+          const s = await db.collection("companies").doc(p.companyId).collection("payoutSecrets").doc(p.id).get();
+          if (s.exists) secrets[p.id] = s.data()?.bankDetails ?? null;
+        })
+    );
+
+    const enriched = payouts.map((p) => ({ ...p, companyName: companyNames[p.companyId] ?? "—", bankSecrets: secrets[p.id] ?? null }));
 
     return NextResponse.json({ payouts: enriched });
   } catch (err) {

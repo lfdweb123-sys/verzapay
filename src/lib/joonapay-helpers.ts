@@ -5,7 +5,7 @@
 // GET /api/v1/developer/misc pour supporter tous les marchés actifs.
 
 import type { JoonapayCountry, JoonapayPaymentMethod, JoonapayEntity } from "@/lib/joonapay";
-import { listJoonapayEntities, createJoonapayEntity, updateJoonapayEntity } from "@/lib/joonapay";
+import { listJoonapayEntities, createJoonapayEntity } from "@/lib/joonapay";
 
 /**
  * Résout le pays JoonaPay à partir d'un numéro E.164 et/ou du pays de l'entreprise.
@@ -72,6 +72,46 @@ export function resolvePaymentMethod(
   return { status: "none" };
 }
 
+const normalizeName = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+
+/**
+ * Retrouve l'opérateur Mobile Money d'après le nom que l'utilisateur a saisi lui-même
+ * (ex. "Moov BJ", "MTN BJ", "Orange CI"). Tous les mots saisis doivent se retrouver dans
+ * le nom ou le code de l'opérateur ; à égalité, le plus proche (moins de mots en trop) gagne.
+ */
+export function matchOperatorByName(
+  methods: JoonapayPaymentMethod[],
+  countryCode: string,
+  typed: string,
+  opts: { requireTransferEnabled?: boolean } = {}
+): PaymentMethodResolution {
+  const inCountry = methods.filter(
+    (m) =>
+      m.country.code === countryCode &&
+      m.channel === "MOBILE_MONEY" &&
+      (opts.requireTransferEnabled ? m.transfer_status === "active" : m.payment_status === "active")
+  );
+  const exactCode = inCountry.find((m) => m.code === typed);
+  if (exactCode) return { status: "resolved", method: exactCode };
+
+  const wanted = normalizeName(typed).filter((w) => w !== countryCode.toLowerCase() || normalizeName(typed).length === 1);
+  const scored = inCountry
+    .map((m) => {
+      const words = new Set([...normalizeName(m.name), ...normalizeName(m.code ?? "")]);
+      const all = normalizeName(typed).every((w) => words.has(w)) || wanted.every((w) => words.has(w));
+      return { m, all, extra: words.size - wanted.length };
+    })
+    .filter((x) => x.all && wanted.length > 0)
+    .sort((a, b) => a.extra - b.extra);
+
+  if (scored.length === 0) return { status: "none" };
+  if (scored.length > 1 && scored[0].extra === scored[1].extra) {
+    return { status: "ambiguous", options: scored.map((x) => x.m) };
+  }
+  return { status: "resolved", method: scored[0].m };
+}
+
 /**
  * Trouve une entité JoonaPay existante pour ce numéro, ou en crée une.
  *
@@ -105,85 +145,4 @@ export async function findOrCreateEntity(params: {
     payment_method_uuid: params.paymentMethodUuid,
   });
   return created.data.entity;
-}
-
-/**
- * Résout la méthode "virement bancaire" (BANK_TRANSFER) active pour les
- * décaissements dans un pays donné.
- */
-export function resolveBankTransferMethod(
-  methods: JoonapayPaymentMethod[],
-  countryCode: string
-): JoonapayPaymentMethod | null {
-  return (
-    methods.find(
-      (m) => m.country.code === countryCode && m.channel === "BANK_TRANSFER" && m.transfer_status === "active"
-    ) ?? null
-  );
-}
-
-export interface BankDetails {
-  bankName: string;
-  accountHolderName: string;
-  iban?: string | null;
-  bicSwift?: string | null;
-  accountNumber?: string | null;
-  sortCode?: string | null;
-  routingNumber?: string | null;
-}
-
-/**
- * Trouve (par téléphone) ou crée le bénéficiaire, puis lui rattache le compte
- * bancaire fourni s'il n'existe pas déjà (même IBAN / même numéro de compte).
- */
-export async function findOrCreateBankEntity(params: {
-  phone: string;
-  name: string;
-  countryCode: string;
-  countryUuid: string;
-  paymentMethodUuid: string;
-  bank: BankDetails;
-}): Promise<JoonapayEntity> {
-  const existing = await listJoonapayEntities({ phone: params.phone, per_page: 5 });
-  let entity: JoonapayEntity | undefined = existing.data?.entities?.[0];
-
-  if (!entity) {
-    const created = await createJoonapayEntity({
-      name: params.name,
-      type: "VENDOR",
-      phone: params.phone,
-      country_code: params.countryCode,
-      country_uuid: params.countryUuid,
-      payment_method_uuid: params.paymentMethodUuid,
-    });
-    entity = created.data.entity;
-  }
-
-  const b = params.bank;
-  const alreadyThere = entity.bank_accounts?.some(
-    (acc) =>
-      (b.iban && acc.iban === b.iban) ||
-      (b.accountNumber && acc.account_number === b.accountNumber)
-  );
-
-  if (!alreadyThere) {
-    const updated = await updateJoonapayEntity(entity.uuid, {
-      bank_accounts: [
-        {
-          country_uuid: params.countryUuid,
-          bank_name: b.bankName,
-          account_holder_name: b.accountHolderName,
-          iban: b.iban ?? undefined,
-          bic_swift: b.bicSwift ?? undefined,
-          account_number: b.accountNumber ?? undefined,
-          sort_code: b.sortCode ?? undefined,
-          routing_number: b.routingNumber ?? undefined,
-          is_default: true,
-        },
-      ],
-    });
-    entity = updated.data.entity;
-  }
-
-  return entity;
 }

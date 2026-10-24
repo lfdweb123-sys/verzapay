@@ -293,6 +293,11 @@ export async function POST(req: NextRequest) {
     // payment_method_uuid à JoonaPay, et leur page de checkout affichera
     // toutes les méthodes actives pour laisser le client choisir.
 
+    // Mobile Money regroupe plusieurs opérateurs : on ne fige JAMAIS un opérateur précis
+    // (le premier de la liste, ex. Moov) — le client choisit le sien sur la page de paiement.
+    // La méthode a déjà été vérifiée ci-dessus ; carte et virement n'ont qu'une seule méthode.
+    if (paymentMethod && paymentMethod.channel === "MOBILE_MONEY") paymentMethod = null;
+
     console.log(`${LOG_PREFIX} paymentMethod résolu:`, paymentMethod ? `${paymentMethod.channel}(${paymentMethod.name})` : "null (mode ANY)");
 
     // Conversion : montant saisi (devise choisie, défaut XOF) -> devise du pays du client (débit) et -> XOF (ledger).

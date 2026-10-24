@@ -305,6 +305,18 @@ export async function GET(req: NextRequest) {
     const deleted = await purgeTransactions(db, false);
     const deletedNotifications = await purgeReadNotifications(db);
 
+    // Historique de la page Status : conservé 3 jours
+    const oldChecks = await db
+      .collection("statusChecks")
+      .where("at", "<", Date.now() - 3 * 24 * 60 * 60 * 1000)
+      .limit(400)
+      .get();
+    if (!oldChecks.empty) {
+      const statusBatch = db.batch();
+      oldChecks.docs.forEach((d) => statusBatch.delete(d.ref));
+      await statusBatch.commit();
+    }
+
     console.log(
       `${LOG_PREFIX} Nettoyage quotidien terminé : ${deleted} suppression(s)`
     );

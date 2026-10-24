@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { getNavId } from "@/lib/nav-state";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
@@ -24,7 +25,14 @@ interface MemberDetail {
 }
 
 export default function AdminCompanyDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    const stored = getNavId("company");
+    if (!stored) router.replace("/admin/companies");
+    else setId(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { user } = useAuth();
   const { show } = useToast();
 

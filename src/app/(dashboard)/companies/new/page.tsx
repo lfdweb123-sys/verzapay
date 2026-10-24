@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useCompany } from "@/lib/company-context";
 import { useToast } from "@/components/ui/toast";
 import { CountrySelect } from "@/components/ui/country-select";
 
@@ -13,6 +14,7 @@ export default function NewCompanyPage() {
   const { user } = useAuth();
   const { show } = useToast();
   const router = useRouter();
+  const { setActiveCompanyId } = useCompany();
 
   const [name, setName] = useState("");
   const [legalName, setLegalName] = useState("");
@@ -33,7 +35,8 @@ export default function NewCompanyPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur lors de la création");
       show("Entreprise créée avec succès", "success");
-      router.push(`/kyc-pending?companyId=${data.companyId}`);
+      await setActiveCompanyId(data.companyId);
+      router.push("/kyc-pending");
     } catch (err) {
       show((err as Error).message, "error");
     } finally {

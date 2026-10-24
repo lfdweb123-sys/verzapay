@@ -3,6 +3,12 @@ import { adminDb } from "@/lib/firebase-admin";
 import { getJoonapayMisc } from "@/lib/joonapay";
 import { verifyRequestUid } from "@/lib/auth-token";
 
+const CHANNEL_NAMES: Record<string, string> = {
+  MOBILE_MONEY: "Mobile Money",
+  CREDIT_CARD: "Carte bancaire",
+  BANK_TRANSFER: "Virement bancaire",
+};
+
 export async function GET(req: NextRequest) {
   try {
     const companyId = req.nextUrl.searchParams.get("companyId");
@@ -28,7 +34,8 @@ export async function GET(req: NextRequest) {
       .filter((m: { payment_status: string; country: { code: string } }) =>
         m.payment_status === "active" && m.country.code === countryCode
       )
-      .map((m: { channel: string; name: string }) => ({ channel: m.channel, name: m.name }));
+      // Libellé générique par type de méthode (jamais le nom d'un opérateur précis)
+      .map((m: { channel: string }) => ({ channel: m.channel, name: CHANNEL_NAMES[m.channel] ?? m.channel }));
 
     // Dédoublonner par channel
     const seen = new Set<string>();

@@ -13,7 +13,10 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { PreferencesProvider } from "@/lib/preferences-context";
-import { CompanyProvider } from "@/lib/company-context";
+import { useCompany } from "@/lib/company-context";
+import { isKycLocked, isAllowedWhenLocked, isInteractiveWhenLocked } from "@/lib/kyc-lock";
+import Link from "next/link";
+import { ShieldAlert } from "lucide-react";
 
 export default function DashboardGroupLayout({
   children,
@@ -61,6 +64,17 @@ export default function DashboardGroupLayout({
     }
   }, [user, appUser, loading, twoFactorVerified, router]);
 
+  // Verrouillage tant que l'identité de l'entreprise active n'est pas validée
+  const { activeCompany, loading: companyLoading } = useCompany();
+  const kycLocked = !companyLoading && isKycLocked(activeCompany);
+  const pageAllowed = !kycLocked || isAllowedWhenLocked(pathname);
+  const pageInteractive = !kycLocked || isInteractiveWhenLocked(pathname);
+
+  useEffect(() => {
+    // Accès direct par l'URL à une page verrouillée = tentative de contournement
+    if (kycLocked && !isAllowedWhenLocked(pathname)) router.replace("/unauthorized");
+  }, [kycLocked, pathname, router]);
+
   // Fermer le menu mobile lors d'un changement de page
   useEffect(() => {
     setMobileOpen(false);
@@ -92,10 +106,10 @@ export default function DashboardGroupLayout({
   if (isAdminUser) return null; // l'useEffect ci-dessus gère la redirection
 
   if (needsCodeVerification(appUser, twoFactorVerified)) return null;
+  if (!pageAllowed) return null; // redirection vers /unauthorized en cours
 
   return (
     <PreferencesProvider>
-      <CompanyProvider>
         <div className="min-h-screen bg-ink-50 dark:bg-ink-900">
           <Sidebar
             collapsed={collapsed}
@@ -117,7 +131,23 @@ export default function DashboardGroupLayout({
             )}
           >
             <div className="p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in">
-              {children}
+              {kycLocked && pathname !== "/kyc-pending" && (
+                <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-danger-700">
+                  <ShieldAlert size={18} className="shrink-0" />
+                  <p className="text-sm flex-1 min-w-[200px]">
+                    <strong>Vérification d&apos;identité requise.</strong> Toutes les actions sont désactivées tant que l&apos;identité de cette entreprise n&apos;est pas validée.
+                  </p>
+                  <Link href="/kyc-pending" className="btn-primary text-sm">Vérifier maintenant</Link>
+                </div>
+              )}
+              {/* Contenu grisé et totalement inerte (aucun clic, aucun focus clavier) tant que non vérifié */}
+              <div
+                inert={!pageInteractive}
+                aria-disabled={!pageInteractive}
+                className={cn(!pageInteractive && "opacity-50 grayscale select-none")}
+              >
+                {children}
+              </div>
             </div>
           </main>
 
@@ -130,7 +160,6 @@ export default function DashboardGroupLayout({
             onContinue={stayActive}
           />
         </div>
-      </CompanyProvider>
     </PreferencesProvider>
   );
 }

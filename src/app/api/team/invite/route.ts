@@ -26,6 +26,9 @@ export async function POST(req: NextRequest) {
     if (!companySnap.exists) return NextResponse.json({ error: "Entreprise introuvable" }, { status: 404 });
 
     const company = companySnap.data()!;
+    if (company.kycStatus !== "approved") {
+      return NextResponse.json({ error: "Vous n'êtes pas autorisé : la vérification d'identité de l'entreprise doit d'abord être validée." }, { status: 403 });
+    }
     if (company.ownerUid !== uid) {
       return NextResponse.json({ error: "Seul le propriétaire peut inviter des membres" }, { status: 403 });
     }

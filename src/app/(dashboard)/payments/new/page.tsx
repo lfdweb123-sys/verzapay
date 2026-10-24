@@ -140,7 +140,7 @@ export default function NewPaymentPage() {
         <div className="card-base p-8 text-center">
           <p className="text-lg font-medium text-ink-900">KYC requis</p>
           <p className="text-sm text-ink-500 mt-2">Vous devez compléter la vérification KYC avant de créer des paiements.</p>
-          <Link href={`/kyc-pending?companyId=${activeCompany?.id}`} className="btn-primary mt-4 mx-auto">Vérifier maintenant</Link>
+          <Link href="/kyc-pending" className="btn-primary mt-4 mx-auto">Vérifier maintenant</Link>
         </div>
       </div>
     );

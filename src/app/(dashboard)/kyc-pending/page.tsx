@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ShieldCheck, ExternalLink, Loader2, CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
+import { useCompany } from "@/lib/company-context";
 import { useToast } from "@/components/ui/toast";
 import type { Company } from "@/types";
 import Link from "next/link";
 
 function KycContent() {
-  const searchParams = useSearchParams();
-  const companyId = searchParams.get("companyId");
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const { user } = useAuth();
   const { show } = useToast();
   const router = useRouter();

@@ -45,7 +45,7 @@ export function KycBanner({ company }: { company: Company }) {
 
       {showAction && (
         <Link
-          href={`/kyc-pending?companyId=${company.id}`}
+          href="/kyc-pending"
           className={cn(
             "shrink-0 inline-flex items-center gap-1 text-xs font-medium rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap",
             isRejected ? "bg-danger-500 text-white hover:bg-danger-700" : "bg-brand-700 text-white hover:bg-brand-800"

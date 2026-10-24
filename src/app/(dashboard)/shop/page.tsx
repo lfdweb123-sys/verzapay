@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatXOF, slugify } from "@/lib/utils";
 import type { Shop, ShopProduct, ShopOrder } from "@/types";
+import { setNavId } from "@/lib/nav-state";
 
 export default function ShopHomePage() {
   const { user } = useAuth();
@@ -121,7 +122,7 @@ export default function ShopHomePage() {
             </p>
             <div className="flex flex-col gap-2">
               {activeCompany.kycStatus !== "approved" && (
-                <Link href={`/kyc-pending?companyId=${activeCompany.id}`} className="btn-primary mx-auto">Vérifier mon entreprise</Link>
+                <Link href="/kyc-pending" className="btn-primary mx-auto">Vérifier mon entreprise</Link>
               )}
               {activeCompany.kycStatus === "approved" && !activeCompany.apiKeySecretGenerated && (
                 <Link href="/developers" className="btn-primary mx-auto">Générer ma clé API</Link>
@@ -236,7 +237,7 @@ export default function ShopHomePage() {
         ) : (
           <div className="divide-y divide-ink-50">
             {products.slice(0, 6).map((p) => (
-              <Link key={p.id} href={`/shop/products/${p.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-ink-50/50 transition-colors">
+              <Link key={p.id} href="/shop/products/edit" onClick={() => setNavId("product", p.id)} className="flex items-center justify-between px-4 py-3 hover:bg-ink-50/50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
                   {p.imageBase64 ? (
                     // eslint-disable-next-line @next/next/no-img-element

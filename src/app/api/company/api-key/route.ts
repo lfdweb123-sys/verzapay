@@ -29,6 +29,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Seul le propriétaire peut générer une clé API" }, { status: 403 });
     }
 
+    if (company.kycStatus !== "approved") {
+      return NextResponse.json({ error: "Vous n'êtes pas autorisé : la vérification d'identité de l'entreprise doit d'abord être validée." }, { status: 403 });
+    }
+
     const secretKey = generateApiSecretKey();
     const publicKey = company.apiKeyPublic || generateApiPublicKey();
     const secretHash = hashSecret(secretKey);

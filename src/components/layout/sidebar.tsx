@@ -14,6 +14,7 @@ import { Logo } from "@/components/ui/logo";
 import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
 import type { Company } from "@/types";
+import { isKycLocked, isAllowedWhenLocked } from "@/lib/kyc-lock";
 
 interface NavItem {
   href: string;
@@ -197,6 +198,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
           {navList.map((item, idx) => {
             const prev = navList[idx - 1];
             const showSection = item.section && item.section !== prev?.section;
+            const disabled = isKycLocked(activeCompany) && !isAllowedWhenLocked(item.href);
             return (
               <div key={item.href}>
                 {showSection && (
@@ -207,6 +209,19 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
                 {showSection && (
                   <div className={cn("hidden", collapsed && "lg:block my-2 mx-2 h-px bg-ink-100")} />
                 )}
+                {disabled ? (
+                  <span
+                    aria-disabled="true"
+                    title="Vérification d'identité requise"
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-400 opacity-50 cursor-not-allowed select-none",
+                      collapsed && "lg:justify-center lg:px-2"
+                    )}
+                  >
+                    <item.icon size={18} />
+                    <span className={cn(collapsed && "lg:hidden")}>{item.label}</span>
+                  </span>
+                ) : (
                 <Link
                   href={item.href}
                   onClick={onMobileClose}
@@ -224,6 +239,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
                   <item.icon size={18} className={isActive(item.href) ? "text-brand-700" : ""} />
                   <span className={cn(collapsed && "lg:hidden")}>{item.label}</span>
                 </Link>
+                )}
               </div>
             );
           })}

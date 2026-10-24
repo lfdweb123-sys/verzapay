@@ -9,6 +9,7 @@ import { Wallet, Search, ChevronRight, RefreshCw, ArrowDownLeft, ArrowUpRight } 
 import { formatXOF, initials, colorForName } from "@/lib/utils";
 import type { Company } from "@/types";
 import { Pagination, usePagination } from "@/components/ui/pagination";
+import { setNavId } from "@/lib/nav-state";
 
 interface JoonapayBalance {
   country: string;
@@ -172,7 +173,7 @@ export default function AdminWalletsPage() {
             {pg.pageItems.map((c) => (
               <Link
                 key={c.id}
-                href={`/admin/companies/${c.id}`}
+                href="/admin/companies/detail" onClick={() => setNavId("company", c.id)}
                 className="flex items-center justify-between px-4 py-3.5 hover:bg-ink-50/50 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
