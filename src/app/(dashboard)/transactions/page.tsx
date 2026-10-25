@@ -10,6 +10,7 @@ import { formatDateTime } from "@/lib/utils";
 import { usePreferences } from "@/lib/preferences-context";
 import type { Transaction, Payout } from "@/types";
 import { Pagination, usePagination } from "@/components/ui/pagination";
+import { ExportMenu } from "@/components/export-menu";
 
 type UnifiedRow =
   | { kind: "in"; id: string; createdAt: number; amount: number; status: string; method: string; counterparty: string; sub?: string }
@@ -68,9 +69,12 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-lg font-medium text-ink-900">Transactions</h1>
-        <p className="text-sm text-ink-500">{activeCompany?.name} — Vue unifiée des flux entrants et sortants</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-medium text-ink-900">Transactions</h1>
+          <p className="text-sm text-ink-500">{activeCompany?.name} — Vue unifiée des flux entrants et sortants</p>
+        </div>
+        <ExportMenu type="transactions" />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

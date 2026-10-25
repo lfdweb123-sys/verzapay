@@ -11,6 +11,7 @@ import { usePreferences } from "@/lib/preferences-context";
 import Link from "next/link";
 import type { LedgerEntry } from "@/types";
 import { Pagination, usePagination } from "@/components/ui/pagination";
+import { ExportMenu } from "@/components/export-menu";
 
 export default function WalletsPage() {
   const { companies, activeCompany } = useCompany();
@@ -38,9 +39,12 @@ export default function WalletsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-lg font-medium text-ink-900">Portefeuilles</h1>
-        <p className="text-sm text-ink-500">Soldes et journal de mouvements par entreprise</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-medium text-ink-900">Portefeuilles</h1>
+          <p className="text-sm text-ink-500">Soldes et journal de mouvements par entreprise</p>
+        </div>
+        <ExportMenu type="ledger" />
       </div>
 
       {/* Vue globale multi-entreprise */}

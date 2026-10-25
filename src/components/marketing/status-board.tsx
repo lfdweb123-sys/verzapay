@@ -7,7 +7,15 @@ import { cn } from "@/lib/utils";
 type Status = "operational" | "degraded" | "outage";
 interface Check { id: string; name: string; description: string; status: Status; latencyMs: number | null }
 interface HistoryPoint { at: number; overall: Status; c: Record<string, Status> }
-interface Payload { updatedAt: number; overall: Status; components: Check[]; history?: HistoryPoint[] }
+interface Incident { id: string; componentId: string; componentName: string; severity: Status; startedAt: number; endedAt: number | null }
+interface Payload { updatedAt: number; overall: Status; components: Check[]; history?: HistoryPoint[]; incidents?: Incident[]; uptime?: Record<string, number | null> }
+
+function duration(ms: number): string {
+  const m = Math.max(1, Math.round(ms / 60000));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h} h ${m % 60 ? `${m % 60} min` : ""}`.trim() : `${Math.floor(h / 24)} j ${h % 24} h`;
+}
 
 const REFRESH_MS = 30_000;
 const HISTORY = 60;
@@ -96,6 +104,9 @@ export function StatusBoard() {
                 {c.latencyMs !== null && c.latencyMs > 0 && (
                   <p className="text-[11px] text-ink-400 tabular-nums mt-0.5">{c.latencyMs} ms</p>
                 )}
+                {data.uptime && data.uptime[c.id] !== null && data.uptime[c.id] !== undefined && (
+                  <p className="text-[11px] text-ink-500 tabular-nums mt-0.5">{data.uptime[c.id]!.toFixed(2)} % sur 30 j</p>
+                )}
               </div>
             </div>
             <div className="flex gap-0.5 mt-3" aria-hidden>
@@ -117,6 +128,30 @@ export function StatusBoard() {
           </div>
         ))}
       </div>
+      <div>
+        <h2 className="text-base font-medium text-ink-900 mb-3">Historique des incidents (30 jours)</h2>
+        {(data.incidents ?? []).length === 0 ? (
+          <p className="text-sm text-ink-500 rounded-xl border border-ink-200 px-4 py-5 text-center">Aucun incident enregistré sur la période.</p>
+        ) : (
+          <div className="rounded-xl border border-ink-200 divide-y divide-ink-100">
+            {(data.incidents ?? []).map((i) => (
+              <div key={i.id} className="p-4 flex items-start gap-3">
+                <span className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: COLOR[i.severity] }} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink-900">
+                    {i.componentName} — {i.severity === "outage" ? "indisponibilité" : "ralentissement"}
+                  </p>
+                  <p className="text-xs text-ink-500 mt-0.5">
+                    {new Date(i.startedAt).toLocaleString("fr-FR")} ·{" "}
+                    {i.endedAt ? `résolu après ${duration(i.endedAt - i.startedAt)}` : <strong style={{ color: TEXT[i.severity] }}>en cours depuis {duration(Date.now() - i.startedAt)}</strong>}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <p className="text-xs text-ink-400 flex flex-wrap items-center gap-x-4 gap-y-1">
         <span>Une barre = une minute (les 60 dernières).</span>
         <span className="inline-flex items-center gap-1.5"><i className="w-2.5 h-2.5 rounded-sm inline-block" style={{ backgroundColor: COLOR.operational }} /> Opérationnel</span>
