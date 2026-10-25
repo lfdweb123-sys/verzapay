@@ -143,7 +143,7 @@ export function StatusBoard() {
                   </p>
                   <p className="text-xs text-ink-500 mt-0.5">
                     {new Date(i.startedAt).toLocaleString("fr-FR")} ·{" "}
-                    {i.endedAt ? `résolu après ${duration(i.endedAt - i.startedAt)}` : <strong style={{ color: TEXT[i.severity] }}>en cours depuis {duration(Date.now() - i.startedAt)}</strong>}
+                    {i.endedAt ? `résolu après ${duration(i.endedAt - i.startedAt)}` : <strong style={{ color: TEXT[i.severity] }}>en cours depuis {duration(data.updatedAt - i.startedAt)}</strong>}
                   </p>
                 </div>
               </div>
