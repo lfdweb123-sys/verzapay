@@ -11,6 +11,18 @@ import { FxError } from "@/lib/fx";
 import type { Transaction } from "@/types";
 import { verifyRequestUid } from "@/lib/auth-token";
 
+// Garde uniquement les URLs HTTPS appartenant au domaine du site (jamais d'URL externe arbitraire).
+function sameSiteUrls(urls: Record<string, string | null | undefined>): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    const origin = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").origin;
+    for (const [key, value] of Object.entries(urls)) {
+      if (value && new URL(value).origin === origin && value.startsWith("https://")) out[key] = value;
+    }
+  } catch { /* configuration absente : aucune URL de retour */ }
+  return out;
+}
+
 const LOG_PREFIX = "[CreatePayment]";
 
 // Délai par défaut avant expiration du lien de paiement (en jours)
@@ -175,6 +187,9 @@ export async function POST(req: NextRequest) {
       imageBase64,
       uid,
       feeBearer,
+      successUrl,
+      cancelUrl,
+      failureUrl,
       // "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER" | "ANY" | undefined.
       // "ANY" (ou absent) = on ne fixe rien : JoonaPay affichera toutes les
       // méthodes actives pour ce pays sur sa page de paiement et le CLIENT
@@ -340,6 +355,8 @@ export async function POST(req: NextRequest) {
       fee_bearer: "MERCHANT" as const,
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
+      // Retour client (checkout hébergé uniquement) : acceptés seulement sur le domaine du site.
+      ...sameSiteUrls({ success_url: successUrl, cancel_url: cancelUrl, failure_url: failureUrl }),
     };
     console.log(`${LOG_PREFIX} Payload envoyé à JoonaPay createPayment:`, JSON.stringify(joonaPayload));
 

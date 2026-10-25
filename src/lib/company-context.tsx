@@ -66,6 +66,10 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading || companies.length === 0) return;
 
+    // Une entreprise active valide est conservée : une mise à jour d'une entreprise (ex. frais à
+    // charge) ne doit JAMAIS ramener sur celle qui était active à la connexion.
+    if (activeCompanyId && companies.some((c) => c.id === activeCompanyId)) return;
+
     // Priorité: activeCompanyId de l'utilisateur
     if (appUser?.activeCompanyId) {
       const exists = companies.some(c => c.id === appUser.activeCompanyId);
@@ -94,7 +98,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       updateDoc(doc(db, "users", user.uid), { activeCompanyId: companies[0].id })
         .catch(console.error);
     }
-  }, [companies, appUser, user, loading]);
+  }, [companies, appUser, user, loading, activeCompanyId]);
 
   async function setActiveCompanyId(id: string) {
     if (!user) return;

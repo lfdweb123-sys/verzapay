@@ -49,6 +49,10 @@ export const createPaymentSchema = z.object({
   customerEmail: z.string().email().max(150).optional().nullable(),
   imageBase64: base64Image,
   feeBearer: z.enum(["MERCHANT", "CUSTOMER"]).optional().nullable(),
+  // Optionnel — checkout hébergé : URLs HTTPS de retour du client (même domaine que le site, contrôlé côté route)
+  successUrl: z.string().url().max(2048).optional().nullable(),
+  cancelUrl: z.string().url().max(2048).optional().nullable(),
+  failureUrl: z.string().url().max(2048).optional().nullable(),
   uid,
   // Méthode de paiement souhaitée par le marchand.
   // "ANY" (ou absent) = pas de méthode imposée : JoonaPay affichera toutes
