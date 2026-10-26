@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "aws4fetch": "^1.0.20",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "exceljs": "^4.4.0",
