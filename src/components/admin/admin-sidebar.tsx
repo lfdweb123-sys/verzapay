@@ -5,8 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, ArrowDownLeft, ArrowUpRight, CreditCard, Users,
   Wallet, UsersRound, Building2, LogOut, ShieldAlert, X, Menu, Mail,
-  MessageSquare, UserCog, Settings, Percent,
-} from "lucide-react";
+  MessageSquare, UserCog, Settings, Percent, RotateCcw, Scale, Landmark } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -22,6 +21,9 @@ const ADMIN_NAV = [
   { href: "/admin/customers", label: "Clients / fournisseurs", icon: UsersRound },
   { href: "/admin/wallets", label: "Portefeuilles", icon: Wallet },
   { href: "/admin/commissions", label: "Commissions", icon: Percent },
+  { href: "/admin/refunds", label: "Remboursements", icon: RotateCcw },
+  { href: "/admin/disputes", label: "Litiges", icon: Scale },
+  { href: "/admin/reconciliation", label: "Rapprochement bancaire", icon: Landmark },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
   { href: "/admin/email-requests", label: "Demandes d'email", icon: Mail },
   { href: "/admin/teams", label: "Équipe Verzapay", icon: UserCog },

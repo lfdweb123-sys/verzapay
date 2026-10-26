@@ -10,6 +10,7 @@ const COLUMNS = [
       { label: "Moyens de paiement", href: "/#paiements" },
       { label: "Tarifs", href: "/#tarifs" },
       { label: "Documentation API", href: "/docs" },
+      { label: "Intégrations", href: "/integrations" },
       { label: "Espace développeur", href: "/developers" },
     ],
   },

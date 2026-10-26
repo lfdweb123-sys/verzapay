@@ -60,16 +60,60 @@ export async function GET() {
   try {
     const db = adminDb();
     const col = db.collection("statusChecks");
-    await col.doc(String(bucket)).create({
+    const firstOfMinute = await col.doc(String(bucket)).create({
       at: now, overall, c: Object.fromEntries(components.map((c) => [c.id, c.status])),
-    }).catch(() => undefined); // déjà enregistrée pour cette minute
+    }).then(() => true).catch(() => false); // false : déjà enregistrée pour cette minute
+
+    // Début de la surveillance (sert au calcul honnête de la disponibilité)
+    const metaRef = db.collection("statusMeta").doc("monitoring");
+    await metaRef.create({ startedAt: now }).catch(() => undefined);
+
+    // Incidents : ouverts dès qu'un service n'est plus opérationnel, clos dès son retour
+    if (firstOfMinute) {
+      const incidents = db.collection("statusIncidents");
+      const openSnap = await incidents.where("open", "==", true).get();
+      const openByComponent = new Map(openSnap.docs.map((d) => [d.data().componentId as string, d]));
+      const severityRank = { operational: 0, degraded: 1, outage: 2 } as const;
+      for (const c of components) {
+        const open = openByComponent.get(c.id);
+        if (c.status !== "operational" && !open) {
+          await incidents.add({ componentId: c.id, componentName: c.name, severity: c.status, startedAt: now, endedAt: null, open: true });
+        } else if (c.status !== "operational" && open && severityRank[c.status] > severityRank[open.data().severity as Status]) {
+          await open.ref.update({ severity: c.status });
+        } else if (c.status === "operational" && open) {
+          await open.ref.update({ open: false, endedAt: now });
+        }
+      }
+    }
     const snap = await col.orderBy("at", "desc").limit(60).get();
     history = snap.docs.map((d) => d.data() as { at: number; overall: Status; c: Record<string, Status> }).reverse();
   } catch {
     history = [];
   }
 
-  const payload = { updatedAt: now, overall, components, history };
+  // Historique des incidents (30 jours) et disponibilité par service
+  let incidentList: { id: string; componentId: string; componentName: string; severity: Status; startedAt: number; endedAt: number | null }[] = [];
+  const uptime: Record<string, number | null> = {};
+  try {
+    const db = adminDb();
+    const since = now - 30 * 24 * 60 * 60 * 1000;
+    const snap = await db.collection("statusIncidents").where("startedAt", ">=", since).orderBy("startedAt", "desc").limit(100).get();
+    incidentList = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<(typeof incidentList)[number], "id">) }));
+    const meta = (await db.collection("statusMeta").doc("monitoring").get()).data();
+    const windowStart = Math.max(since, Number(meta?.startedAt ?? now));
+    const windowMs = now - windowStart;
+    for (const c of components) {
+      if (windowMs < 10 * 60 * 1000) { uptime[c.id] = null; continue; } // trop peu de recul pour un pourcentage fiable
+      const down = incidentList
+        .filter((i) => i.componentId === c.id && i.severity === "outage")
+        .reduce((sum, i) => sum + Math.max(0, (i.endedAt ?? now) - Math.max(i.startedAt, windowStart)), 0);
+      uptime[c.id] = Math.max(0, Math.min(100, 100 - (down / windowMs) * 100));
+    }
+  } catch {
+    incidentList = [];
+  }
+
+  const payload = { updatedAt: now, overall, components, history, incidents: incidentList, uptime };
   cache = { at: now, payload };
   return NextResponse.json(payload, { headers: { "Cache-Control": "no-store" } });
 }

@@ -11,6 +11,7 @@ import { cn, formatRelative } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { NotificationItem } from "@/types";
 import Link from "next/link";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 
 export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarCollapsed: boolean; onMenuClick?: () => void }) {
   const { user, appUser, logout } = useAuth();
@@ -86,6 +87,7 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
+        <LanguageSwitcher className="hidden sm:inline-flex" />
         {/* Créer un lien de paiement */}
         <Link
           href="/payments/new"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 
 const NAV_LINKS = [
   { href: "/#fonctionnement", label: "Fonctionnement" },
@@ -45,6 +46,7 @@ export function MarketingHeader() {
         </nav>
 
         <div className="hidden lg:flex items-center gap-3">
+          <LanguageSwitcher />
           <Link href="/login" className="text-sm font-medium text-ink-700 hover:text-ink-900 px-3 py-2">
             Se connecter
           </Link>
@@ -73,6 +75,7 @@ export function MarketingHeader() {
             </a>
           ))}
           <div className="pt-3 mt-2 border-t border-ink-100 flex flex-col gap-2">
+            <LanguageSwitcher className="self-start" />
             <Link href="/login" className="btn-secondary w-full">Se connecter</Link>
             <Link href="/register" className="btn-primary w-full">Créer un compte gratuit</Link>
           </div>

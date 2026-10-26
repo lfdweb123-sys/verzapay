@@ -14,6 +14,7 @@ import { ArrowUpRight, Plus, X, Loader2 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
 import type { Payout } from "@/types";
 import { Pagination, usePagination } from "@/components/ui/pagination";
+import { ExportMenu } from "@/components/export-menu";
 
 export default function PayoutsPage() {
   const { activeCompany } = useCompany();
@@ -152,6 +153,8 @@ export default function PayoutsPage() {
           <h1 className="text-lg font-medium text-ink-900">Paiements sortants</h1>
           <p className="text-sm text-ink-500">{activeCompany?.name}</p>
         </div>
+        <div className="flex items-center gap-2">
+        <ExportMenu type="payouts" />
         {canPayout && (
           <button
             onClick={() => canOpenPayout && setShowModal(true)}
@@ -164,6 +167,7 @@ export default function PayoutsPage() {
             <span className="hidden sm:inline">Envoyer un paiement</span>
           </button>
         )}
+        </div>
       </div>
 
       <div className="card-base p-4 flex items-center justify-between">

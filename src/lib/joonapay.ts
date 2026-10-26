@@ -145,6 +145,9 @@ export interface CreatePaymentParams {
   fee_bearer?: "MERCHANT" | "CUSTOMER";
   webhook_url?: string;
   custom_message?: string;
+  success_url?: string; // retour client après paiement réussi (UX uniquement, jamais une preuve de paiement)
+  cancel_url?: string;
+  failure_url?: string;
 }
 
 export interface CreatePaymentResult {
