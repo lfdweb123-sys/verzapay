@@ -7,8 +7,7 @@ import {
   Bug, LayoutDashboard, ArrowDownLeft, ArrowUpRight, CreditCard, Users,
   Wallet, Settings, Code2, LifeBuoy, ChevronLeft, ChevronRight,
   Plus, Check, ChevronsUpDown, Building2, BookOpen, LogOut,
-  UsersRound, ShieldAlert, X, Store,
-} from "lucide-react";
+  UsersRound, ShieldAlert, X, Store, RotateCcw, Scale, Repeat } from "lucide-react";
 import { cn, initials, colorForName } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
 import { useAuth } from "@/lib/auth-context";
@@ -28,6 +27,9 @@ const NAV: NavItem[] = [
   { href: "/payments", label: "Paiements entrants", icon: ArrowDownLeft },
   { href: "/payouts", label: "Paiements sortants", icon: ArrowUpRight },
   { href: "/transactions", label: "Transactions", icon: CreditCard },
+  { href: "/refunds", label: "Remboursements", icon: RotateCcw },
+  { href: "/disputes", label: "Litiges", icon: Scale },
+  { href: "/subscriptions", label: "Facturation récurrente", icon: Repeat },
   { href: "/customers", label: "Clients / fournisseurs", icon: Users },
   { href: "/wallets", label: "Portefeuilles", icon: Wallet },
   { href: "/shop", label: "Ma boutique", icon: Store },

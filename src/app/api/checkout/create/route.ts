@@ -41,7 +41,12 @@ export async function POST(req: NextRequest) {
     // Aucun email au client ici : sinon il recevrait le lien du partenaire au lieu de la page Verzapay.
     const res = await fetch(`${origin}/api/payments-engine/payments`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: req.headers.get("authorization") ?? "" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: req.headers.get("authorization") ?? "",
+        // transmis tels quels pour les appels internes (tâches planifiées)
+        ...(req.headers.get("x-vpz-internal") ? { "x-vpz-internal": req.headers.get("x-vpz-internal")!, "x-vpz-internal-uid": req.headers.get("x-vpz-internal-uid") ?? "" } : {}),
+      },
       body: JSON.stringify({
         uid: body.uid,
         companyId: body.companyId,
