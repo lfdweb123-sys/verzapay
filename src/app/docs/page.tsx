@@ -462,6 +462,7 @@ export default function DocsPage() {
               <li>Les limites (minimum 100 XOF, maximum 50 000 000 XOF) s&apos;appliquent à l&apos;équivalent en XOF.</li>
               <li>Votre solde et vos commissions restent exprimés en XOF.</li>
               <li><code className="font-mono">merchant_reference</code> (128 caractères max) est renvoyé tel quel dans le webhook : utilisez-le pour retrouver votre commande.</li>
+              <li><code className="font-mono">metadata</code> (objet clé/valeur texte, 20 clés, 1000 caractères par valeur, 8000 au total) est conservé sur le paiement et renvoyé dans la réponse, par <code className="font-mono">GET /payments/{"{id}"}</code> et dans le webhook : vous pouvez ainsi ne rien enregistrer de votre côté avant le paiement et ne traiter la commande qu&apos;à la confirmation. <code className="font-mono">customer_email</code> est aussi renvoyé.</li>
             </ul>
 
             <div className="flex items-center gap-2 mt-8 mb-1">

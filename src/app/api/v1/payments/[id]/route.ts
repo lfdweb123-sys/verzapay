@@ -30,6 +30,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       exchange_rate: tx.fxRate ?? null,
       description: tx.description ?? null,
       merchant_reference: tx.merchantReference ?? null,
+      customer_email: tx.customerEmail ?? null,
+      metadata: tx.metadata ?? null,
       created_at: tx.createdAt ?? null,
       completed_at: tx.completedAt ?? null,
     });

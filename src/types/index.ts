@@ -172,6 +172,7 @@ export interface Transaction {
   customerPhone?: string | null;
   // Conversion de devise : `amount` reste en XOF (ledger). Le marchand a demandé requestedAmount requestedCurrency ;
   // le client est débité de chargeAmount chargeCurrency (devise du pays) au taux fxRate.
+  metadata?: Record<string, string> | null; // données libres du marchand (API v1)
   requestedAmount?: number | null;
   requestedCurrency?: string | null;
   chargeAmount?: number | null; // montant réellement demandé au client (commission incluse si à sa charge)
