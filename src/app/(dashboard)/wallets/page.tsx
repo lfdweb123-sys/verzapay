@@ -12,6 +12,7 @@ import Link from "next/link";
 import type { LedgerEntry } from "@/types";
 import { Pagination, usePagination } from "@/components/ui/pagination";
 import { ExportMenu } from "@/components/export-menu";
+import { VerifiedBadge } from "@/components/ui/verified-badge";
 
 export default function WalletsPage() {
   const { companies, activeCompany } = useCompany();
@@ -65,7 +66,7 @@ export default function WalletsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-900 truncate">{c.name}</p>
-                    <p className="text-xs text-ink-500">{c.kycStatus === "approved" ? "Vérifié" : "Non vérifié"}</p>
+                    <p className="text-xs text-ink-500">{c.kycStatus === "approved" ? <VerifiedBadge label="Vérifié" size={13} /> : "Non vérifié"}</p>
                   </div>
                 </div>
                 <p className="text-sm font-medium text-ink-900 tabular-nums shrink-0">{formatAmount(c.walletBalance ?? 0)}</p>

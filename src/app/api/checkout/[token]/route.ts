@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { getJoonapayMisc } from "@/lib/joonapay";
 import { groupMethods, isValidTokenShape } from "@/lib/checkout";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getSessionByToken } from "@/lib/checkout-session";
 
 // Données PUBLIQUES minimales nécessaires à l'affichage du checkout (jamais d'identifiant interne,
 // de clé, ni de lien du partenaire).
@@ -16,9 +17,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     if (!limited.allowed) return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 });
 
     const db = adminDb();
-    const sessionSnap = await db.collection("checkoutSessions").doc(token).get();
-    if (!sessionSnap.exists) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
-    const session = sessionSnap.data()!;
+    const found = await getSessionByToken(db, token);
+    if (!found) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
+    const session = found.data;
 
     const [txSnap, companySnap] = await Promise.all([
       db.collection("companies").doc(session.companyId).collection("transactions").doc(session.txId).get(),
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
       country: country ? { code: country.code, name: country.name, indicator: country.indicator } : null,
       methods,
       customerPhone: session.customerPhone,
-      alreadyPaid: tx.status === "completed",
+      alreadyPaid: tx.status === "completed" || session.paid === true,
       expired,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {

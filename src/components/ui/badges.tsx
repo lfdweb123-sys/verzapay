@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, BadgeCheck } from "lucide-react";
 import type { TransactionStatus, PayoutStatus, KycStatus } from "@/types";
 
 // ─── Badge statut transaction ─────────────────────────────────────────────────
@@ -43,6 +43,9 @@ const KYC_BADGE: Record<KycStatus, { label: string; cls: string }> = {
 
 export function KycBadge({ status }: { status: KycStatus }) {
   const cfg = KYC_BADGE[status] ?? { label: status, cls: "bg-ink-100 text-ink-700" };
+  if (status === "approved") {
+    return <span className="badge bg-success-50 inline-flex items-center gap-1" style={{ color: "#15803d" }}><BadgeCheck size={12} fill="#16a34a" stroke="#ffffff" strokeWidth={2} aria-hidden />Vérifié</span>;
+  }
   return <span className={cn("badge", cfg.cls)}>{cfg.label}</span>;
 }
 

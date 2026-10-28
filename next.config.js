@@ -33,6 +33,15 @@ const nextConfig = {
           { key: "Content-Security-Policy", value: csp },
         ],
       },
+      // Page de paiement hébergée : jamais indexée, jamais de fuite du jeton par le Referer, jamais mise en cache
+      {
+        source: "/pay/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
       // Service Worker scope
       {
         source: "/firebase-messaging-sw.js",

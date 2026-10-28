@@ -141,7 +141,10 @@ export default function DashboardGroupLayout({
                 </div>
               )}
               {/* Contenu grisé et totalement inerte (aucun clic, aucun focus clavier) tant que non vérifié */}
+              {/* key = entreprise active : changer d'entreprise remonte la page entière, donc TOUTES les données
+                  (listes, formulaires, onglets, pagination) sont rechargées pour la nouvelle entreprise */}
               <div
+                key={activeCompany?.id ?? "none"}
                 inert={!pageInteractive}
                 aria-disabled={!pageInteractive}
                 className={cn(!pageInteractive && "opacity-50 grayscale select-none")}

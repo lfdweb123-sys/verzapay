@@ -56,6 +56,7 @@ export function MarketingHeader() {
           </Link>
         </div>
 
+        <LanguageSwitcher className="lg:hidden ml-auto mr-2" />
         <button onClick={() => setMobileOpen((v) => !v)} className="lg:hidden w-9 h-9 flex items-center justify-center text-ink-700">
           {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>

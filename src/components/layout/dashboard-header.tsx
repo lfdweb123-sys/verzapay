@@ -87,7 +87,7 @@ export function DashboardHeader({ sidebarCollapsed, onMenuClick }: { sidebarColl
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
-        <LanguageSwitcher className="hidden sm:inline-flex" />
+        <LanguageSwitcher />
         {/* Créer un lien de paiement */}
         <Link
           href="/payments/new"

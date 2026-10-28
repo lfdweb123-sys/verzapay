@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { getJoonapayPayment } from "@/lib/joonapay";
 import { isValidTokenShape, mapPaymentState } from "@/lib/checkout";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getSessionByToken, markSessionPaid } from "@/lib/checkout-session";
 
 // Statut FIABLE : lu côté serveur auprès du partenaire. Une simple redirection (?r=success) ne prouve rien.
 // Cette route ne crédite JAMAIS le portefeuille : seul le webhook signé existant le fait.
@@ -16,17 +17,19 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     if (!limited.allowed) return NextResponse.json({ error: "Trop de requêtes" }, { status: 429 });
 
     const db = adminDb();
-    const sessionRef = db.collection("checkoutSessions").doc(token);
-    const sessionSnap = await sessionRef.get();
-    if (!sessionSnap.exists) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
-    const session = sessionSnap.data()!;
+    const found = await getSessionByToken(db, token);
+    if (!found) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
+    const sessionRef = found.ref;
+    const session = found.data;
 
     const txSnap = await db.collection("companies").doc(session.companyId).collection("transactions").doc(session.txId).get();
     const txStatus = txSnap.data()?.status;
+    if (session.paid === true) return NextResponse.json({ state: "success", canRetry: false, verified: true });
 
     try {
       const detail = await getJoonapayPayment(session.joonapayUuid);
       const result = mapPaymentState(detail.data);
+      if (result.state === "success" && session.paid !== true) await markSessionPaid(db, session.txId);
       if (result.state === "failed" && result.canRetry && session.attempt?.status !== "failed") {
         await sessionRef.update({ "attempt.status": "failed" }); // libère le verrou : nouvelle tentative autorisée
       }

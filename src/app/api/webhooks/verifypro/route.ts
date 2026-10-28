@@ -4,6 +4,7 @@ import { sendPushAndStore } from "@/lib/push";
 import { sendTransactionalEmail, emailTemplate } from "@/lib/brevo";
 import crypto from "crypto";
 import type { KycExtractedData } from "@/types";
+import { notifyKycSubmission } from "@/lib/kyc-alert";
 
 function verifySignature(payload: string, header: string, secret: string): boolean {
   try {
@@ -176,6 +177,8 @@ export async function POST(req: NextRequest) {
       kycVerificationId: verificationId,
       kycStatus: "pending"
     });
+
+    await notifyKycSubmission(companyId, "pending");
 
     console.log(`✅ [KYC] Mapping créé: ${verificationId} -> ${companyId}`);
     console.log(`✅ [KYC] Entreprise ${companyId} mise à jour: pending`);
@@ -382,6 +385,7 @@ export async function POST(req: NextRequest) {
 
     await db.collection("companies").doc(companyId).update(updateData);
     console.log("✅ [KYC] Entreprise mise à jour: review (avec données extraites)");
+    await notifyKycSubmission(companyId, "review");
 
     // 🔥 Marquer le mapping effectivement utilisé comme résolu, pour qu'il
     // ne reste jamais indéfiniment candidat à de futures résolutions (cf

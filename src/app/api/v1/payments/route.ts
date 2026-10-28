@@ -7,6 +7,8 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { parseOrThrow } from "@/lib/validation";
 import { planCharge, planFields } from "@/lib/charge";
 import { computeCollectionFees, resolveFeeBearer } from "@/lib/fees";
+import { newCheckoutToken } from "@/lib/checkout";
+import { createCheckoutSession, hostedCheckoutEnabled, appOrigin } from "@/lib/checkout-session";
 import { FxError } from "@/lib/fx";
 import type { Transaction } from "@/types";
 
@@ -198,6 +200,10 @@ export async function POST(req: NextRequest) {
       bearer,
     });
 
+    // Page hébergée Verzapay (repli automatique sur JoonaPay si sa création échoue)
+    const hostedToken = hostedCheckoutEnabled() && appOrigin() ? newCheckoutToken() : null;
+    const hostedBack = hostedToken ? `${appOrigin()}/pay/${hostedToken}` : null;
+
     const joonaRes = await createJoonapayPayment({
       amount: fees.chargeTotal,
       currency: plan.chargeCurrency,
@@ -211,6 +217,7 @@ export async function POST(req: NextRequest) {
       fee_bearer: "MERCHANT" as const, // frais partenaire inclus dans la commission Verzapay (un seul frais)
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
+      ...(hostedBack ? { success_url: `${hostedBack}?r=success`, cancel_url: `${hostedBack}?r=cancel`, failure_url: `${hostedBack}?r=failure` } : {}),
     });
 
     if (!joonaRes.success) {
@@ -260,6 +267,23 @@ export async function POST(req: NextRequest) {
       webhookUrlOverride: body.webhook_url ?? null,
     });
 
+    // Page hébergée Verzapay si disponible, sinon page de paiement JoonaPay
+    const providerUrl: string | null = joonaRes.data?.payment_link ?? null;
+    let checkoutUrl: string | null = providerUrl;
+    let fallbackUrl: string | null = null;
+    if (hostedToken && hostedBack && providerUrl && joonaRes.data?.uuid) {
+      try {
+        await createCheckoutSession(db, {
+          token: hostedToken, companyId: company.id, txId: txRef.id, joonapayUuid: joonaRes.data.uuid,
+          paymentLink: providerUrl, customerPhone: body.customer_phone, customerName: resolvedCustomerName, description: body.description ?? "",
+        });
+        checkoutUrl = hostedBack;
+        fallbackUrl = providerUrl;
+      } catch (sessionErr) {
+        console.error("[v1/payments] Page hébergée indisponible, repli sur la page JoonaPay:", sessionErr);
+      }
+    }
+
     return NextResponse.json(
       {
         id: txRef.id,
@@ -273,7 +297,8 @@ export async function POST(req: NextRequest) {
         fee_bearer: fees.bearer.toLowerCase(),
         customer_fee: fees.customerFee,
         exchange_rate: plan.fxRate,
-        checkout_url: joonaRes.data?.payment_link ?? null,
+        checkout_url: checkoutUrl,                // page hébergée Verzapay (ou JoonaPay en repli)
+        fallback_checkout_url: fallbackUrl,       // alternative : page de paiement JoonaPay
         payment_method: paymentMethod?.name ?? "any",
         channel: paymentMethod?.channel ?? "ANY",
       },

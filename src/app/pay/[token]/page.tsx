@@ -8,6 +8,8 @@ import {
   CheckCircle2, XCircle, Clock, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getNetworkBrand, OFFICIAL_LOGOS } from "@/lib/network-brands";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 
 interface CheckoutData {
   businessName: string;
@@ -68,6 +70,7 @@ export default function CheckoutPage() {
         setData(d);
         setPhone(d.customerPhone.replace(d.country?.indicator ?? "", ""));
         if (d.methods.mobileMoney.length > 0) setMethod("MOBILE_MONEY");
+        if (d.methods.mobileMoney.length === 1) setOperator(d.methods.mobileMoney[0].code);
         else if (d.methods.card) setMethod("CARD");
         else if (d.methods.bank) setMethod("BANK_TRANSFER");
         if (d.alreadyPaid) setView("success");
@@ -155,7 +158,8 @@ export default function CheckoutPage() {
             <Image src="/icons/verzapay.png" alt="Verzapay" width={160} height={42} priority className="h-9 w-auto" />
             <span className="hidden md:block text-xs text-ink-500 border-l border-ink-100 pl-4">Paiements simples, rapides et sécurisés</span>
           </div>
-          <div className="flex items-center gap-2.5 text-right">
+          <div className="flex items-center gap-3 text-right">
+            <LanguageSwitcher />
             <Lock size={20} className="text-brand-700 shrink-0" />
             <div className="leading-tight">
               <p className="text-xs font-medium text-ink-900">Paiement sécurisé</p>
@@ -237,17 +241,40 @@ export default function CheckoutPage() {
                           {method === "MOBILE_MONEY" && (
                             <div className="mt-4 space-y-3">
                               <div>
-                                <label className="label-base">Opérateur</label>
-                                <div className="flex flex-wrap gap-2">
-                                  {data.methods.mobileMoney.map((m) => (
-                                    <button
-                                      key={m.code} type="button" onClick={() => setOperator(m.code)}
-                                      className={cn("px-3.5 py-2 rounded-lg border text-sm font-medium transition-colors",
-                                        operator === m.code ? "border-brand-700 bg-brand-50 text-brand-800" : "border-ink-200 text-ink-700 hover:bg-ink-50")}
-                                    >
-                                      {m.name}
-                                    </button>
-                                  ))}
+                                <label className="label-base">Votre réseau</label>
+                                <div className="flex flex-wrap gap-4 pt-1">
+                                  {data.methods.mobileMoney.map((m) => {
+                                    const brand = getNetworkBrand(m.code, m.name);
+                                    const logo = OFFICIAL_LOGOS[brand.id];
+                                    const active = operator === m.code;
+                                    return (
+                                      <button
+                                        key={m.code} type="button" onClick={() => setOperator(m.code)} aria-pressed={active}
+                                        className="group flex flex-col items-center gap-1.5 w-[84px] focus:outline-none"
+                                      >
+                                        <span
+                                          className={cn("relative w-16 h-16 rounded-full flex items-center justify-center overflow-hidden border-[3px] shadow-sm transition-all",
+                                            active ? "scale-105 ring-4 ring-brand-200" : "opacity-90 group-hover:opacity-100 group-hover:scale-105")}
+                                          style={{ backgroundColor: brand.bg, borderColor: active ? "#1D4ED8" : brand.ring ?? "#FFFFFF" }}
+                                        >
+                                          {logo ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={logo} alt={brand.label} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <span className="font-bold tracking-tight leading-none text-center px-1" style={{ color: brand.fg, fontSize: brand.mark.length > 5 ? 11 : brand.mark.length > 3 ? 14 : 17 }}>
+                                              {brand.mark}
+                                            </span>
+                                          )}
+                                          {active && (
+                                            <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-brand-700 text-white flex items-center justify-center">
+                                              <CheckCircle2 size={14} />
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className={cn("text-[11px] text-center leading-tight", active ? "font-medium text-brand-800" : "text-ink-600")}>{brand.label}</span>
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                               </div>
                               <div>

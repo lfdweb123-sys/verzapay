@@ -13,23 +13,29 @@ export interface MethodLike {
   country: { code: string };
 }
 
-export const SESSION_TTL_MS = 48 * 60 * 60 * 1000; // 48 h
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // valable un mois, puis supprimée
 export const ATTEMPT_LOCK_MS = 5 * 60 * 1000;      // une tentative Mobile Money en cours bloque les doubles débits
 
 /** Jeton opaque, non devinable (aucun identifiant interne dans l'URL). */
 export function newCheckoutToken(): string {
-  return crypto.randomBytes(24).toString("base64url");
+  return crypto.randomBytes(48).toString("base64url"); // 384 bits => 64 caractères, impossible à deviner ou énumérer
 }
 
 export function isValidTokenShape(token: string): boolean {
-  return /^[A-Za-z0-9_-]{24,64}$/.test(token);
+  return /^[A-Za-z0-9_-]{24,128}$/.test(token);
 }
 
-/** Méthodes réellement disponibles pour un pays, regroupées par type. */
+/** Pays d'Afrique (ISO 3166-1 alpha-2) : seuls ces pays proposent le Mobile Money. */
+export const AFRICAN_COUNTRY_CODES = new Set([
+  "DZ","AO","BJ","BW","BF","BI","CM","CV","CF","TD","KM","CG","CD","CI","DJ","EG","GQ","ER","SZ","ET","GA","GM","GH","GN","GW","KE","LS","LR","LY","MG","MW","ML","MR","MU","MA","MZ","NA","NE","NG","RW","ST","SN","SC","SL","SO","ZA","SS","SD","TZ","TG","TN","UG","ZM","ZW",
+]);
+
+/** Méthodes réellement disponibles pour un pays, regroupées par type. Hors Afrique : jamais de Mobile Money. */
 export function groupMethods(methods: MethodLike[], countryCode: string) {
   const active = methods.filter((m) => m.country.code === countryCode && m.payment_status === "active");
+  const africa = AFRICAN_COUNTRY_CODES.has(countryCode.toUpperCase());
   return {
-    mobileMoney: active.filter((m) => m.channel === "MOBILE_MONEY").map((m) => ({ code: m.code, name: m.name })),
+    mobileMoney: africa ? active.filter((m) => m.channel === "MOBILE_MONEY").map((m) => ({ code: m.code, name: m.name })) : [],
     card: active.some((m) => m.channel === "CREDIT_CARD"),
     bank: active.some((m) => m.channel === "BANK_TRANSFER"),
   };

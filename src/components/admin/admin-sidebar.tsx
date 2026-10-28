@@ -10,6 +10,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Tableau de bord", icon: LayoutDashboard },
@@ -56,6 +57,7 @@ export function AdminSidebar() {
       >
         <Menu size={18} className="text-ink-700" />
       </button>
+      <div className="lg:hidden fixed top-4 right-4 z-40"><LanguageSwitcher className="bg-white shadow-card" /></div>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-40 bg-ink-900/40 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} />

@@ -9,7 +9,8 @@ import { protectText, unprotectText } from "@/lib/i18n-protect";
 // Un plafond quotidien de caractères protège le quota gratuit.
 const MAX_TEXTS = 60;
 const MAX_CHARS_PER_TEXT = 400;
-const DAILY_CHAR_LIMIT = Number(process.env.DEEPL_DAILY_CHAR_LIMIT) || 50_000;
+const DAILY_CHAR_LIMIT = Number(process.env.DEEPL_DAILY_CHAR_LIMIT) || 120_000;
+const MONTHLY_CHAR_LIMIT = Number(process.env.DEEPL_MONTHLY_CHAR_LIMIT) || 450_000; // offre gratuite DeepL : 500 000 / mois
 
 const hash = (text: string) => crypto.createHash("sha1").update(text).digest("hex");
 
@@ -48,10 +49,14 @@ export async function POST(req: NextRequest) {
       const chars = missing.reduce((n, t) => n + t.length, 0);
       const day = new Date().toISOString().slice(0, 10);
       const usageRef = db.collection("i18nUsage").doc(day);
+      const monthRef = db.collection("i18nUsage").doc(`month-${day.slice(0, 7)}`);
       const allowed = await db.runTransaction(async (tx) => {
-        const used = Number((await tx.get(usageRef)).data()?.chars ?? 0);
-        if (used + chars > DAILY_CHAR_LIMIT) return false;
+        const [daySnap, monthSnap] = await Promise.all([tx.get(usageRef), tx.get(monthRef)]);
+        const used = Number(daySnap.data()?.chars ?? 0);
+        const usedMonth = Number(monthSnap.data()?.chars ?? 0);
+        if (used + chars > DAILY_CHAR_LIMIT || usedMonth + chars > MONTHLY_CHAR_LIMIT) return false;
         tx.set(usageRef, { chars: used + chars }, { merge: true });
+        tx.set(monthRef, { chars: usedMonth + chars }, { merge: true });
         return true;
       });
 

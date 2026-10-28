@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 
 type Status = "operational" | "degraded" | "outage";
 interface Check { id: string; name: string; description: string; status: Status; latencyMs: number | null }
@@ -37,6 +38,7 @@ export function StatusBoard() {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const incidentsPg = usePagination(data?.incidents ?? [], 10);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -134,7 +136,7 @@ export function StatusBoard() {
           <p className="text-sm text-ink-500 rounded-xl border border-ink-200 px-4 py-5 text-center">Aucun incident enregistré sur la période.</p>
         ) : (
           <div className="rounded-xl border border-ink-200 divide-y divide-ink-100">
-            {(data.incidents ?? []).map((i) => (
+            {incidentsPg.pageItems.map((i) => (
               <div key={i.id} className="p-4 flex items-start gap-3">
                 <span className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: COLOR[i.severity] }} />
                 <div className="min-w-0 flex-1">
@@ -151,6 +153,8 @@ export function StatusBoard() {
           </div>
         )}
       </div>
+
+      <Pagination page={incidentsPg.page} pageCount={incidentsPg.pageCount} total={incidentsPg.total} pageSize={10} onChange={incidentsPg.setPage} />
 
       <p className="text-xs text-ink-400 flex flex-wrap items-center gap-x-4 gap-y-1">
         <span>Une barre = une minute (les 60 dernières).</span>
