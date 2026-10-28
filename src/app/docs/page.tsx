@@ -771,6 +771,19 @@ export default function DocsPage() {
             <h2 className="text-xl font-medium" style={{ color: c.text }}>
               Aide à l&apos;intégration
             </h2>
+            <div
+              className="mt-3 rounded-xl p-4 text-sm leading-relaxed"
+              style={{ backgroundColor: c.surfaceSoft, border: `1px solid ${c.border}`, color: c.textMuted }}
+            >
+              <p>
+                <strong style={{ color: c.text }}>Votre site tourne sous WordPress ?</strong> Utilisez le plugin WordPress Verzapay, disponible sur GitHub :
+              </p>
+              <p className="mt-1.5">
+                <a href="https://github.com/lfdweb123-sys/plugin-verzapay-wordpress" target="_blank" rel="noopener noreferrer" className="underline break-all" style={{ color: c.brandCode }}>
+                  https://github.com/lfdweb123-sys/plugin-verzapay-wordpress
+                </a>
+              </p>
+            </div>
             <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
               Vous n&apos;arrivez pas à intégrer l&apos;API ? Vous pouvez confier l&apos;intégration à un développeur web
               en le contactant sur WhatsApp.

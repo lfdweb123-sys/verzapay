@@ -11,7 +11,7 @@ export default function AboutPage() {
 
       <div className="space-y-6 text-ink-700 text-[15px] leading-relaxed">
         <p>
-          Verzapay est exploité par <strong>La Faveur Infinie de Dieu</strong>, établissement immatriculé au Registre du Commerce et du Crédit Mobilier de Cotonou sous le numéro <strong>RB/ABC/24 A 112271</strong>, et identifié fiscalement sous le numéro IFU <strong>0202214354454</strong>, République du Bénin.
+          Verzapay est une plateforme de paiement présente en <strong>Europe, en Afrique et en Amérique</strong>.
         </p>
         <p>
           Notre mission est simple : permettre à tout marchand, quelle que soit sa taille, d&apos;accepter des paiements Mobile Money et carte bancaire en quelques minutes, sans complexité technique ni démarche administrative lourde.
@@ -42,12 +42,10 @@ export default function AboutPage() {
       <div className="mt-10 pt-8 border-t border-ink-100 text-ink-700 text-[15px] leading-relaxed space-y-4">
         <p className="font-medium text-ink-900">Informations légales de l&apos;exploitant</p>
         <ul className="space-y-1.5 text-sm text-ink-600">
-          <li><strong>Dénomination :</strong> La Faveur Infinie de Dieu</li>
-          <li><strong>Numéro IFU :</strong> 0202214354454</li>
-          <li><strong>Numéro RCCM :</strong> RB/ABC/24 A 112271 du 28-08-2024</li>
+          <li><strong>Dénomination :</strong> Verzapay</li>
           <li><strong>Catégorie :</strong> Établissement (Personne physique)</li>
           <li><strong>Régime fiscal :</strong> Micro et petites entreprises</li>
-          <li><strong>Siège :</strong> Akassato, Abomey-Calavi, Atlantique, République du Bénin</li>
+          <li><strong>Présence :</strong> Europe, Afrique et Amérique</li>
         </ul>
       </div>
     </article>

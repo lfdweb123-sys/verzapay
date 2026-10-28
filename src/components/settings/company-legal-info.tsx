@@ -157,7 +157,7 @@ export function CompanyLegalInfo({ company }: { company: Company }) {
                 type="text"
                 value={form.ifuNumber}
                 onChange={(e) => update("ifuNumber", e.target.value)}
-                placeholder="0202214354454"
+                placeholder="Numéro d'identification fiscale"
                 className="input-base font-mono text-sm"
               />
             </div>
@@ -167,7 +167,7 @@ export function CompanyLegalInfo({ company }: { company: Company }) {
                 type="text"
                 value={form.rccmNumber}
                 onChange={(e) => update("rccmNumber", e.target.value)}
-                placeholder="RB/ABC/24 A 112271"
+                placeholder="Numéro du registre du commerce"
                 className="input-base font-mono text-sm"
               />
             </div>

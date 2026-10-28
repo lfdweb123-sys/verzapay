@@ -11,7 +11,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-medium text-ink-900">1. Éditeur de la plateforme</h2>
         <p>
-          La plateforme Verzapay est éditée et exploitée par <strong>La Faveur Infinie de Dieu</strong>, établissement de droit béninois immatriculé au Registre du Commerce et du Crédit Mobilier de Cotonou sous le numéro <strong>RB/ABC/24 A 112271</strong> en date du 28 août 2024, identifié fiscalement sous le numéro IFU <strong>0202214354454</strong>, dont le siège est situé à Akassato, Abomey-Calavi, Atlantique, République du Bénin.
+          La plateforme Verzapay est éditée et exploitée par <strong>Verzapay</strong>, dont les activités s&apos;exercent en Europe, en Afrique et en Amérique.
         </p>
       </section>
 
@@ -67,7 +67,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-medium text-ink-900">8. Droit applicable</h2>
         <p>
-          Les présentes conditions sont soumises au droit béninois. Tout litige relève de la compétence des juridictions de Cotonou, République du Bénin.
+          Les présentes conditions sont soumises au droit applicable. Tout litige relève de la compétence des juridictions compétentes, sans préjudice des droits dont l&apos;utilisateur bénéficie en vertu de la loi.
         </p>
       </section>
 
