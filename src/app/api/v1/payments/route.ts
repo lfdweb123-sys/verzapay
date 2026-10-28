@@ -35,6 +35,17 @@ const publicCreatePaymentSchema = z.object({
   // page JoonaPay. Sinon verrouille un canal précis.
   channel: z.enum(["any", "mobile_money", "credit_card", "bank_transfer"]).optional().nullable(),
   merchant_reference: z.string().max(128).optional().nullable(),
+  // Données libres du marchand (clé/valeur texte), conservées sur le paiement et renvoyées telles quelles dans la réponse,
+  // GET /payments/{id} et le webhook : permet de ne rien stocker côté marchand avant le paiement. 20 clés max, 1000 caractères
+  // par valeur, 8000 au total.
+  metadata: z
+    .record(z.string().min(1).max(40), z.string().max(1000))
+    .optional()
+    .nullable()
+    .refine(
+      (m) => !m || (Object.keys(m).length <= 20 && Object.entries(m).reduce((n, [k, v]) => n + k.length + v.length, 0) <= 8000),
+      { message: "metadata : 20 clés maximum, 8000 caractères au total" }
+    ),
   fee_bearer: z.enum(["merchant", "customer"]).optional().nullable(), // sinon réglage Paramètres > Frais
   webhook_url: z.string().url().optional().nullable(), // override ponctuel, sinon company.webhookUrl
 });
@@ -252,6 +263,7 @@ export async function POST(req: NextRequest) {
     await txRef.set({
       ...tx,
       merchantReference: body.merchant_reference ?? null,
+      metadata: body.metadata ?? null,
       webhookUrlOverride: body.webhook_url ?? null,
     });
 
@@ -280,6 +292,8 @@ export async function POST(req: NextRequest) {
         currency: plan.requestedCurrency,
         charged_amount: fees.chargeTotal,
         charged_currency: plan.chargeCurrency,
+        merchant_reference: body.merchant_reference ?? null,
+        metadata: body.metadata ?? null,
         fee_bearer: fees.bearer.toLowerCase(),
         customer_fee: fees.customerFee,
         exchange_rate: plan.fxRate,
