@@ -305,6 +305,20 @@ export async function GET(req: NextRequest) {
     const deleted = await purgeTransactions(db, false);
     const deletedNotifications = await purgeReadNotifications(db);
 
+    // Sessions du checkout hébergé : supprimées peu après un paiement réussi, ou après un mois sans paiement
+    let deletedSessions = 0;
+    for (const q of [
+      db.collection("checkoutSessions").where("purgeAfter", "<=", Date.now()).limit(400),
+      db.collection("checkoutSessions").where("createdAt", "<", Date.now() - 30 * 24 * 60 * 60 * 1000).limit(400),
+    ]) {
+      const snap = await q.get();
+      if (snap.empty) continue;
+      const sessionBatch = db.batch();
+      snap.docs.forEach((d) => sessionBatch.delete(d.ref));
+      await sessionBatch.commit();
+      deletedSessions += snap.size;
+    }
+
     // Historique de la page Status : conservé 3 jours
     const oldChecks = await db
       .collection("statusChecks")
@@ -326,6 +340,7 @@ export async function GET(req: NextRequest) {
       mode: "daily",
       deleted,
       deletedNotifications,
+      deletedSessions,
       message:
         "Les paiements pending et failed âgés d'au moins 7 jours ont été traités.",
     });

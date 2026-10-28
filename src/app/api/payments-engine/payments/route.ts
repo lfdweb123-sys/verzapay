@@ -7,21 +7,11 @@ import { createPaymentSchema, parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { planCharge, planFields } from "@/lib/charge";
 import { computeCollectionFees, resolveFeeBearer } from "@/lib/fees";
+import { newCheckoutToken } from "@/lib/checkout";
+import { createCheckoutSession, hostedCheckoutEnabled, appOrigin } from "@/lib/checkout-session";
 import { FxError } from "@/lib/fx";
 import type { Transaction } from "@/types";
 import { verifyRequestUid } from "@/lib/auth-token";
-
-// Garde uniquement les URLs HTTPS appartenant au domaine du site (jamais d'URL externe arbitraire).
-function sameSiteUrls(urls: Record<string, string | null | undefined>): Record<string, string> {
-  const out: Record<string, string> = {};
-  try {
-    const origin = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").origin;
-    for (const [key, value] of Object.entries(urls)) {
-      if (value && new URL(value).origin === origin && value.startsWith("https://")) out[key] = value;
-    }
-  } catch { /* configuration absente : aucune URL de retour */ }
-  return out;
-}
 
 const LOG_PREFIX = "[CreatePayment]";
 
@@ -187,9 +177,6 @@ export async function POST(req: NextRequest) {
       imageBase64,
       uid,
       feeBearer,
-      successUrl,
-      cancelUrl,
-      failureUrl,
       // "MOBILE_MONEY" | "CREDIT_CARD" | "BANK_TRANSFER" | "ANY" | undefined.
       // "ANY" (ou absent) = on ne fixe rien : JoonaPay affichera toutes les
       // méthodes actives pour ce pays sur sa page de paiement et le CLIENT
@@ -341,6 +328,11 @@ export async function POST(req: NextRequest) {
       bearer,
     });
 
+    // Page de paiement hébergée Verzapay (jeton long et aléatoire). Si sa création échoue plus bas,
+    // on retombe automatiquement sur la page de paiement JoonaPay.
+    const hostedToken = hostedCheckoutEnabled() && appOrigin() ? newCheckoutToken() : null;
+    const hostedBack = hostedToken ? `${appOrigin()}/pay/${hostedToken}` : null;
+
     const joonaPayload = {
       amount: fees.chargeTotal,
       currency: plan.chargeCurrency,
@@ -356,7 +348,11 @@ export async function POST(req: NextRequest) {
       merchant_transaction_id: txRef.id,
       webhook_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/joonapay`,
       // Retour client (checkout hébergé uniquement) : acceptés seulement sur le domaine du site.
-      ...sameSiteUrls({ success_url: successUrl, cancel_url: cancelUrl, failure_url: failureUrl }),
+      // Retour du client sur NOTRE page hébergée après carte / virement (UX uniquement : le statut est
+      // toujours revérifié côté serveur). Absent si la page hébergée est désactivée.
+      ...(hostedBack
+        ? { success_url: `${hostedBack}?r=success`, cancel_url: `${hostedBack}?r=cancel`, failure_url: `${hostedBack}?r=failure` }
+        : {}),
     };
     console.log(`${LOG_PREFIX} Payload envoyé à JoonaPay createPayment:`, JSON.stringify(joonaPayload));
 
@@ -430,7 +426,21 @@ export async function POST(req: NextRequest) {
       console.error(`${LOG_PREFIX} Erreur enregistrement client (non bloquant):`, clientErr);
     }
 
-    const checkoutUrl = joonaRes.data?.payment_link ?? "#";
+    const providerUrl: string = joonaRes.data?.payment_link ?? "#";
+    let checkoutUrl = providerUrl;
+    let fallbackUrl: string | null = null;
+    if (hostedToken && hostedBack && providerUrl !== "#" && joonaRes.data?.uuid) {
+      try {
+        await createCheckoutSession(db, {
+          token: hostedToken, companyId, txId: txRef.id, joonapayUuid: joonaRes.data.uuid,
+          paymentLink: providerUrl, customerPhone, customerName: resolvedCustomerName, description: description ?? "",
+        });
+        checkoutUrl = hostedBack;   // page hébergée Verzapay
+        fallbackUrl = providerUrl;  // alternative : page de paiement JoonaPay
+      } catch (sessionErr) {
+        console.error(`${LOG_PREFIX} Page hébergée indisponible, repli sur la page JoonaPay:`, sessionErr);
+      }
+    }
 
     // Notification push
     try {
@@ -472,6 +482,7 @@ export async function POST(req: NextRequest) {
       paymentId: txRef.id,
       joonapayId: joonaRes.data?.uuid,
       checkoutUrl,
+      fallbackUrl, // page de paiement JoonaPay (alternative) — null si la page hébergée est désactivée
       chargedAmount: fees.chargeTotal,
       chargedCurrency: plan.chargeCurrency,
       feeBearer: fees.bearer,

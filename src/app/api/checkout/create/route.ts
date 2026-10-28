@@ -4,7 +4,6 @@ import { adminDb } from "@/lib/firebase-admin";
 import { verifyRequestUid } from "@/lib/auth-token";
 import { parseOrThrow } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { newCheckoutToken, SESSION_TTL_MS } from "@/lib/checkout";
 
 const schema = z.object({
   uid: z.string().min(1).max(128),
@@ -34,57 +33,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
     }
 
+    // La route de paiement principale crée désormais elle-même la page hébergée (avec repli JoonaPay).
     const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
-    const token = newCheckoutToken();
-    const back = `${origin}/pay/${token}`;
-
-    // Aucun email au client ici : sinon il recevrait le lien du partenaire au lieu de la page Verzapay.
     const res = await fetch(`${origin}/api/payments-engine/payments`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: req.headers.get("authorization") ?? "",
-        // transmis tels quels pour les appels internes (tâches planifiées)
         ...(req.headers.get("x-vpz-internal") ? { "x-vpz-internal": req.headers.get("x-vpz-internal")!, "x-vpz-internal-uid": req.headers.get("x-vpz-internal-uid") ?? "" } : {}),
       },
       body: JSON.stringify({
-        uid: body.uid,
-        companyId: body.companyId,
-        amount: body.amount,
-        currency: body.currency,
-        description: body.description ?? undefined,
-        customerName: body.customerName ?? undefined,
-        customerPhone: body.customerPhone,
-        channel: "ANY",
-        successUrl: `${back}?r=success`,
-        cancelUrl: `${back}?r=cancel`,
-        failureUrl: `${back}?r=failure`,
+        uid: body.uid, companyId: body.companyId, amount: body.amount, currency: body.currency,
+        description: body.description ?? undefined, customerName: body.customerName ?? undefined,
+        customerPhone: body.customerPhone, channel: "ANY",
       }),
     });
     const created = await res.json().catch(() => ({}));
     if (!res.ok) return NextResponse.json({ error: created.error ?? "Création du paiement impossible" }, { status: res.status });
-
-    const txSnap = await db.collection("companies").doc(body.companyId).collection("transactions").doc(created.paymentId).get();
-    const tx = txSnap.data();
-    if (!txSnap.exists || !tx?.joonapayPaymentId) {
-      return NextResponse.json({ error: "Transaction introuvable après création" }, { status: 500 });
-    }
-
-    await db.collection("checkoutSessions").doc(token).set({
-      token,
-      companyId: body.companyId,
-      txId: created.paymentId,
-      joonapayUuid: tx.joonapayPaymentId,
-      paymentLink: created.checkoutUrl, // serveur uniquement : redirection carte / virement
-      customerPhone: body.customerPhone,
-      customerName: body.customerName ?? "",
-      description: body.description ?? "",
-      createdAt: Date.now(),
-      expiresAt: Date.now() + SESSION_TTL_MS,
-      attempt: null,
-    });
-
-    return NextResponse.json({ token, url: back });
+    return NextResponse.json({ url: created.checkoutUrl, hosted: created.fallbackUrl !== null && created.fallbackUrl !== undefined });
   } catch (err) {
     console.error("POST /api/checkout/create:", err);
     const message = err instanceof Error ? err.message : "";

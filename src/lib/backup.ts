@@ -72,14 +72,45 @@ export function decryptBackup(blob: Buffer, keyHex: string): Buffer {
 
 export interface S3Config { endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string; region: string }
 
+/** Endpoint sans espace, sans "/" final ni nom de bucket collé à la fin (erreur fréquente : signature invalide). */
+export function normalizeEndpoint(raw: string, bucket: string): string {
+  let url = raw.trim().replace(/\/+$/, "");
+  const suffix = `/${bucket}`;
+  if (url.toLowerCase().endsWith(suffix.toLowerCase())) url = url.slice(0, -suffix.length);
+  return url;
+}
+
 export function s3ConfigFromEnv(): { config: S3Config | null; missing: string[] } {
-  const e = process.env;
+  // .trim() : une espace ou un retour à la ligne collé dans la valeur (Vercel) invalide la signature => 401/403
+  const e = Object.fromEntries(Object.entries(process.env).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v]));
   const missing = ["BACKUP_S3_ENDPOINT", "BACKUP_S3_BUCKET", "BACKUP_S3_ACCESS_KEY_ID", "BACKUP_S3_SECRET_ACCESS_KEY", "BACKUP_ENCRYPTION_KEY"].filter((k) => !e[k]);
   if (missing.length) return { config: null, missing };
   return {
-    config: { endpoint: e.BACKUP_S3_ENDPOINT!.replace(/\/+$/, ""), bucket: e.BACKUP_S3_BUCKET!, accessKeyId: e.BACKUP_S3_ACCESS_KEY_ID!, secretAccessKey: e.BACKUP_S3_SECRET_ACCESS_KEY!, region: e.BACKUP_S3_REGION || "auto" },
+    config: {
+      endpoint: normalizeEndpoint(e.BACKUP_S3_ENDPOINT!, e.BACKUP_S3_BUCKET!),
+      bucket: e.BACKUP_S3_BUCKET!,
+      accessKeyId: e.BACKUP_S3_ACCESS_KEY_ID!,
+      secretAccessKey: e.BACKUP_S3_SECRET_ACCESS_KEY!,
+      region: e.BACKUP_S3_REGION || "auto",
+    },
     missing: [],
   };
+}
+
+/** Message d'erreur lisible à partir de la réponse du stockage (jamais de secret dedans). */
+export function describeS3Error(status: number, body: string): string {
+  const code = /<Code>([\s\S]*?)<\/Code>/.exec(body)?.[1] ?? "";
+  const message = /<Message>([\s\S]*?)<\/Message>/.exec(body)?.[1] ?? body.slice(0, 160);
+  const hints: Record<string, string> = {
+    InvalidAccessKeyId: "BACKUP_S3_ACCESS_KEY_ID inconnu : utilisez la clé d'accès S3 (R2 > Gérer les jetons API R2), pas un jeton API Cloudflare.",
+    SignatureDoesNotMatch: "Signature refusée : vérifiez BACKUP_S3_SECRET_ACCESS_KEY (sans espace) et que BACKUP_S3_ENDPOINT ne contient pas le nom du bucket.",
+    AccessDenied: "Accès refusé : le jeton doit avoir le droit « Lecture et écriture » sur CE bucket.",
+    NoSuchBucket: "Bucket introuvable : vérifiez BACKUP_S3_BUCKET et la juridiction (EU) de l'endpoint.",
+  };
+  const hint = hints[code] ?? (status === 401 || status === 403
+    ? "Identifiants refusés : vérifiez BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY (clés S3 du stockage, pas un jeton API), sans espace, et l'endpoint."
+    : "");
+  return `Dépôt refusé (${status}${code ? ` ${code}` : ""}) : ${message}${hint ? ` — ${hint}` : ""}`;
 }
 
 const client = (c: S3Config) => new AwsClient({ accessKeyId: c.accessKeyId, secretAccessKey: c.secretAccessKey, service: "s3", region: c.region });
@@ -88,14 +119,14 @@ export async function uploadBackup(c: S3Config, key: string, body: Buffer): Prom
   const res = await client(c).fetch(`${c.endpoint}/${c.bucket}/${key}`, {
     method: "PUT", body: new Uint8Array(body), headers: { "Content-Type": "application/octet-stream" }, signal: AbortSignal.timeout(120_000),
   });
-  if (!res.ok) throw new Error(`Dépôt refusé (${res.status})`);
+  if (!res.ok) throw new Error(describeS3Error(res.status, await res.text().catch(() => "")));
 }
 
 /** Supprime les sauvegardes plus anciennes que `days` jours dans le préfixe donné. */
 export async function pruneBackups(c: S3Config, prefix: string, days: number, now = Date.now()): Promise<number> {
   const aws = client(c);
   const list = await aws.fetch(`${c.endpoint}/${c.bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}`, { signal: AbortSignal.timeout(30_000) });
-  if (!list.ok) throw new Error(`Liste impossible (${list.status})`);
+  if (!list.ok) throw new Error(describeS3Error(list.status, await list.text().catch(() => "")));
   const xml = await list.text();
   const items = Array.from(xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)).map((m) => ({
     key: /<Key>([\s\S]*?)<\/Key>/.exec(m[1])?.[1] ?? "",

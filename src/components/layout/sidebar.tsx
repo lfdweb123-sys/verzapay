@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useCompany } from "@/lib/company-context";
 import type { Company } from "@/types";
 import { isKycLocked, isAllowedWhenLocked } from "@/lib/kyc-lock";
+import { VerifiedBadge } from "@/components/ui/verified-badge";
 
 interface NavItem {
   href: string;
@@ -141,7 +142,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
             <div className={cn("flex-1 min-w-0 text-left", collapsed && "lg:hidden")}>
               <p className="text-sm font-medium text-ink-900 truncate">{activeCompany?.name ?? "—"}</p>
               <p className="text-[11px] text-ink-500">
-                {activeCompany?.kycStatus === "approved" ? "Vérifié" :
+                {activeCompany?.kycStatus === "approved" ? <VerifiedBadge label="Vérifié" size={13} /> :
                   activeCompany?.kycStatus === "pending" ? "KYC en analyse" :
                   activeCompany?.kycStatus === "review" ? "KYC en révision" :
                   activeCompany?.kycStatus === "awaiting_submission" ? "Documents à soumettre" :
@@ -172,7 +173,7 @@ export function Sidebar({ collapsed, onCollapse, mobileOpen, onMobileClose }: Si
                   >
                     <CompanyAvatar company={c} size={26} />
                     <div className="flex-1 min-w-0 text-left">
-                      <p className="text-sm font-medium text-ink-900 truncate">{c.name}</p>
+                      <p className="text-sm font-medium text-ink-900 truncate flex items-center gap-1">{c.name}{c.kycStatus === "approved" && <VerifiedBadge size={14} />}</p>
                       {c.role && <p className="text-[11px] text-ink-500">{c.role}</p>}
                     </div>
                     {activeCompany?.id === c.id && <Check size={14} className="text-brand-600 shrink-0" />}

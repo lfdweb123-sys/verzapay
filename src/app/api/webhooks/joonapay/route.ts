@@ -1,3 +1,4 @@
+import { markSessionPaid } from "@/lib/checkout-session";
 import { assertSafeWebhookUrl } from "@/lib/safe-url";
 import { alertLargePaymentSafe } from "@/lib/fraud-alert";
 import { publicAmounts } from "@/lib/charge";
@@ -210,6 +211,9 @@ export async function POST(req: NextRequest) {
           createdAt: Date.now(),
         });
         console.log(`${LOG_PREFIX} [payment] Entrée ledger créée pour reference=${paymentRequestUuid}`);
+
+        // Page hébergée : le lien de paiement n'est plus conservé une fois le paiement réussi
+        await markSessionPaid(adminDb(), txDoc.id);
 
         // Anti-fraude : simple alerte à l'admin principal pour un gros paiement (ne bloque rien)
         await alertLargePaymentSafe({

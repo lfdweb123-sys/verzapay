@@ -5,6 +5,8 @@ import { getJoonapayMisc } from "@/lib/joonapay";
 import { processJoonapayPayment, ProcessError } from "@/lib/joonapay-checkout";
 import { groupMethods, isAttemptLocked, isValidTokenShape, toE164 } from "@/lib/checkout";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getSessionByToken } from "@/lib/checkout-session";
+import { getCardRedirectUrl } from "@/lib/checkout-card";
 
 const schema = z.object({
   method: z.enum(["MOBILE_MONEY", "CARD", "BANK_TRANSFER"]),
@@ -30,10 +32,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
     const input = parsed.data;
 
     const db = adminDb();
-    const sessionRef = db.collection("checkoutSessions").doc(token);
-    const sessionSnap = await sessionRef.get();
-    if (!sessionSnap.exists) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
-    const session = sessionSnap.data()!;
+    const found = await getSessionByToken(db, token);
+    if (!found) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
+    const sessionRef = found.ref;
+    const session = found.data;
+    if (session.paid === true) return NextResponse.json({ error: "Ce paiement a déjà été effectué." }, { status: 409 });
 
     if (Date.now() > session.expiresAt) return NextResponse.json({ error: "Ce lien de paiement a expiré." }, { status: 410 });
 
@@ -53,8 +56,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
       if (isAttemptLocked(session.attempt, Date.now()) && session.attempt?.method === "MOBILE_MONEY") {
         return NextResponse.json({ error: "Un paiement Mobile Money est déjà en cours." }, { status: 409 });
       }
-      const link: string | undefined = session.paymentLink;
-      if (!link || !link.startsWith("https://")) return NextResponse.json({ error: "Lien de paiement indisponible" }, { status: 502 });
+      const link = await getCardRedirectUrl(session);
+      if (!link) return NextResponse.json({ error: "Lien de paiement indisponible" }, { status: 502 });
       return NextResponse.json({ redirectUrl: link });
     }
 

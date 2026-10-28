@@ -14,7 +14,10 @@ const DAILY_LIMIT = Number(process.env.AI_DAILY_LIMIT) || 800; // protège le qu
 
 export async function POST(req: NextRequest) {
   try {
-    const { AI_BASE_URL, AI_API_KEY, AI_MODEL } = process.env;
+    const AI_BASE_URL = process.env.AI_BASE_URL?.trim();
+    const AI_API_KEY = process.env.AI_API_KEY?.trim();
+    // « Gemini 2.5 Flash » (nom affiché) => « gemini-2.5-flash » (identifiant attendu par l'API)
+    const AI_MODEL = process.env.AI_MODEL?.trim().toLowerCase().replace(/^models\//, "").replace(/\s+/g, "-");
     if (!AI_BASE_URL || !AI_API_KEY || !AI_MODEL) {
       return NextResponse.json({ error: "Assistant non configuré" }, { status: 503 });
     }
@@ -50,12 +53,14 @@ export async function POST(req: NextRequest) {
         model: AI_MODEL,
         messages: [{ role: "system", content: ASSISTANT_SYSTEM_PROMPT }, ...messages],
         temperature: 0.3,
-        max_tokens: 500,
+        max_tokens: 1024,
+        // Gemini 2.5 : sans cela, la « réflexion » consomme le budget de réponse
+        ...(AI_BASE_URL.includes("generativelanguage") && AI_MODEL.includes("2.5") ? { reasoning_effort: "none" } : {}),
       }),
       signal: AbortSignal.timeout(25_000),
     });
     if (!res.ok) {
-      console.error("assistant provider error:", res.status);
+      console.error("assistant provider error:", res.status, (await res.text().catch(() => "")).slice(0, 400));
       return NextResponse.json({ error: "L'assistant est momentanément indisponible." }, { status: 502 });
     }
     const data = await res.json();

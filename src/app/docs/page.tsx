@@ -6,6 +6,7 @@ import {
   Webhook, AlertTriangle, Moon, Sun, Globe, Loader2, MessageCircle,
 } from "lucide-react";
 import { DocsDarkContext } from "./layout";
+import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 
 const SECTIONS = [
   { id: "introduction", label: "Introduction", icon: Zap },
@@ -220,6 +221,7 @@ export default function DocsPage() {
                 {dark ? <Sun size={15} /> : <Moon size={15} />}
                 {dark ? "Mode clair" : "Mode sombre"}
               </button>
+              <LanguageSwitcher className="mt-2" />
             </div>
           </nav>
         </aside>
@@ -444,8 +446,17 @@ export default function DocsPage() {
   "charged_amount": 25000,
   "charged_currency": "XOF",
   "exchange_rate": 1,
-  "checkout_url": "${APP_BASE_URL}/pay/8f3a9b2c"
+  "checkout_url": "${APP_BASE_URL}/pay/Xk3...(64 caractères)",
+  "fallback_checkout_url": "https://checkout.example/process/..."
 }`} />
+            <p className="mt-3 leading-relaxed" style={{ color: c.textMuted }}>
+              <code className="font-mono" style={{ color: c.inlineCodeText }}>checkout_url</code> est la page de paiement hébergée par Verzapay :
+              redirigez-y votre client. <code className="font-mono" style={{ color: c.inlineCodeText }}>fallback_checkout_url</code> est une page de
+              paiement alternative, à utiliser uniquement si la page Verzapay était indisponible. Si la page hébergée ne peut pas être créée,
+              <code className="font-mono" style={{ color: c.inlineCodeText }}> checkout_url</code> contient directement la page alternative et{" "}
+              <code className="font-mono" style={{ color: c.inlineCodeText }}>fallback_checkout_url</code> vaut <code className="font-mono" style={{ color: c.inlineCodeText }}>null</code>.
+              Le lien est secret et inutilisable une fois le paiement effectué ; ne validez jamais une commande sur la seule redirection du client, utilisez le webhook.
+            </p>
 
             <h3 className="text-base font-medium mt-8" style={{ color: c.text }}>Devises et conversion automatique</h3>
             <p className="mt-2 leading-relaxed" style={{ color: c.textMuted }}>
