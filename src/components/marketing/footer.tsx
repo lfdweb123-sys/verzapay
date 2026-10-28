@@ -54,7 +54,7 @@ export function MarketingFooter() {
               </a>
               <p className="flex items-center gap-2 text-sm text-ink-500">
                 <MapPin size={14} />
-                Cotonou, Bénin
+                Europe, Afrique et Amérique
               </p>
             </div>
           </div>

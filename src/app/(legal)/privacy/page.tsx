@@ -11,7 +11,7 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-medium text-ink-900">1. Responsable du traitement</h2>
         <p>
-          Le responsable du traitement des données collectées via Verzapay est <strong>La Faveur Infinie de Dieu</strong>, RCCM RB/ABC/24 A 112271, IFU 0202214354454, sise à Akassato, Abomey-Calavi, République du Bénin.
+          Le responsable du traitement des données collectées via Verzapay est <strong>Verzapay</strong>, présent en Europe, en Afrique et en Amérique.
         </p>
       </section>
 

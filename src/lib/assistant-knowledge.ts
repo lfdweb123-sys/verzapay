@@ -15,7 +15,7 @@ FAITS SUR VERZAPAY (seule source autorisée) :
 - Facturation récurrente : page « Facturation récurrente » ; un lien de paiement est envoyé automatiquement par email à chaque échéance.
 - Exports : boutons « Exporter » (PDF ou Excel) sur Transactions, Décaissements et Portefeuilles.
 - Webhooks : l'URL se renseigne sur la page Développeur. Les webhooks ne sont pas signés : utiliser une URL avec un jeton secret, comparer paymentId/montant avec la commande, être idempotent, ne jamais valider sur la seule redirection.
-- Documentation API : /docs. Pays disponibles : /countries. Devises : /currencies. État des services : /status. Intégrations (WooCommerce, Shopify, API) : /integrations. Aucun plugin WooCommerce/Shopify prêt à installer n'existe pour l'instant.
+- Documentation API : /docs. Pays disponibles : /countries. Devises : /currencies. État des services : /status. Intégrations (WooCommerce, Shopify, API) : /integrations. Un plugin WordPress Verzapay est disponible sur GitHub : https://github.com/lfdweb123-sys/plugin-verzapay-wordpress. Il n'existe pas d'extension officielle pour Shopify pour le moment (intégration par API et webhooks).
 - Aide à l'intégration par un développeur : service payant de 30 000 F via WhatsApp +229 01 90 08 38 57.
 - Support rapide et fiable : WhatsApp +229 62 75 87 03 (chat visible de 6h à 20h, heure du Bénin) ou la page Contact.
 

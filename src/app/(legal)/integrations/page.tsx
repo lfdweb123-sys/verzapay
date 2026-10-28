@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ShoppingCart, Store, Code2, Handshake, MessageCircle, Webhook, Link2, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, Store, Code2, Handshake, MessageCircle, Webhook, Link2, CheckCircle2, ExternalLink } from "lucide-react";
 import { LegalPageHeader } from "@/components/marketing/legal-page-header";
 
 export const metadata: Metadata = {
@@ -59,8 +59,16 @@ export default function IntegrationsPage() {
         <div className="rounded-xl border border-ink-200 p-5">
           <div className="flex items-center gap-2.5"><ShoppingCart size={20} className="text-brand-700" /><h3 className="font-medium text-ink-900">WooCommerce</h3></div>
           <p className="mt-2 text-sm text-ink-600 leading-relaxed">
-            Intégration par l&apos;API et les webhooks. Aucun plugin prêt à installer n&apos;est disponible pour l&apos;instant : un développeur peut brancher Verzapay sur votre boutique avec l&apos;exemple ci-dessous.
+            Un plugin WordPress Verzapay est disponible sur GitHub. Vous pouvez aussi intégrer Verzapay vous-même par l&apos;API et les webhooks avec l&apos;exemple ci-dessous.
           </p>
+          <a
+            href="https://github.com/lfdweb123-sys/plugin-verzapay-wordpress"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-ink-900 text-white text-sm font-medium px-3.5 h-9 hover:bg-ink-800 transition-colors"
+          >
+            <ExternalLink size={15} /> Plugin WordPress Verzapay
+          </a>
           <ul className="mt-3 space-y-1.5 text-sm text-ink-600">
             <li className="flex gap-2"><CheckCircle2 size={15} className="text-success-700 mt-0.5 shrink-0" /> Création du lien de paiement à la commande</li>
             <li className="flex gap-2"><CheckCircle2 size={15} className="text-success-700 mt-0.5 shrink-0" /> Commande validée par webhook (jamais sur la simple redirection)</li>
